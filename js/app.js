@@ -45,7 +45,7 @@ function subtabsBar(){
 
 /* ---------- KPI helper ---------- */
 function kpiRow(kpis, cols, scale){
-  return `<div class="kpi-row" style="grid-template-columns:repeat(${cols||kpis.length},1fr)">`+
+  return `<div class="kpi-row" style="grid-template-columns:repeat(${cols||kpis.length},minmax(0,1fr))">`+
     kpis.map(k=>`<div class="kpi">
       <div class="k-top"><span>${k.l}</span><i data-lucide="${k.i}"></i></div>
       <div class="k-val">${scale?scaleNum(k.v):k.v}</div>

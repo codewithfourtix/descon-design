@@ -23,7 +23,7 @@ function screenSite(){
     </div>
   </div>
   <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
     <div class="card">
       <div class="card-head"><div class="card-title">Shift wise Test Volume</div>${chartTools()}</div>
       <div class="card-pad" style="height:200px"><canvas id="c-testvol"></canvas></div>
@@ -38,7 +38,7 @@ function screenSite(){
     </div>
   </div>
   <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
     <div class="card"><div class="card-head"><div class="card-title">Top 10 Samples by Frequency</div>${chartTools()}</div><div class="card-pad" style="height:180px"><canvas id="c-site-top10"></canvas></div></div>
     <div class="card"><div class="card-head"><div class="card-title">Top 10 Parameters</div>${chartTools()}</div><div class="card-pad" style="height:180px"><canvas id="c-site-params"></canvas></div></div>
     <div class="card"><div class="card-head"><div class="card-title">Sample Plan Distribution</div>${chartTools()}</div><div class="card-pad" style="height:180px;position:relative"><canvas id="c-site-plan"></canvas></div></div>

@@ -38,7 +38,7 @@ function screenISO(){
   </div>
   ${kpiRow(iso.kpis,6)}
   <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
     <div class="card"><div class="card-head"><div class="card-title"><i data-lucide="pie-chart" style="width:14px;color:#0060b0"></i> Audit Status Distribution</div></div><div class="card-pad">${progressList(iso.statusDist)}</div></div>
     <div class="card"><div class="card-head"><div class="card-title"><i data-lucide="bar-chart-3" style="width:14px;color:#0060b0"></i> Clause-wise NC Distribution</div></div><div class="card-pad">${progressList(iso.clauseNC.map(c=>({...c,p:100})))}</div></div>
     <div class="card"><div class="card-head"><div class="card-title"><i data-lucide="building" style="width:14px;color:#e03131"></i> Department NC Risk</div></div><div class="card-pad">${progressList(iso.deptRisk)}</div></div>
