@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AILAB — Descon | Laboratory Automation Backbone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+<div class="app">
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <div class="iconbtn sidebar-toggle" onclick="toggleSidebar()" title="Collapse / expand menu"><i data-lucide="panel-left"></i></div>
+    <div class="logo">
+      <img class="mark-img" src="assets/logo.jpg" alt="Descon">
+      <span class="wordmark">Assure<small>LIQS</small></span>
+    </div>
+    <div class="back-btn" onclick="history.length>1&&window.history.back()"><i data-lucide="chevron-left"></i></div>
+    <div class="crumb"><b>Descon</b><span class="sep">›</span><span id="crumb-page">Overview</span></div>
+
+    <div class="spacer"></div>
+
+    <div class="navchev" onclick="shiftDate(-1)"><i data-lucide="chevron-left"></i></div>
+    <div class="datebox"><label>Start Date &amp; Time</label><div class="val"><span id="start-date">05/16/2026 06:00 AM</span><i data-lucide="calendar" style="width:12px"></i></div></div>
+    <div class="navchev" onclick="shiftDate(1)"><i data-lucide="chevron-right"></i></div>
+    <div class="navchev" onclick="shiftDate(-1)"><i data-lucide="chevron-left"></i></div>
+    <div class="datebox"><label>End Date &amp; Time</label><div class="val"><span id="end-date">05/18/2026 05:15 PM</span><i data-lucide="calendar" style="width:12px"></i></div></div>
+    <div class="navchev" onclick="shiftDate(1)"><i data-lucide="chevron-right"></i></div>
+
+    <div class="seg" id="period-seg">
+      <button class="active" onclick="setPeriod('Daily',this)">Daily</button><button onclick="setPeriod('MTD',this)">MTD</button><button onclick="setPeriod('QTD',this)">QTD</button><button onclick="setPeriod('YTD',this)">YTD</button>
+    </div>
+
+    <div class="search"><i data-lucide="search" style="width:14px"></i><input id="global-search" placeholder="Search sample plans, areas," onkeydown="if(event.key==='Enter')globalSearch(this.value)"></div>
+    <div class="iconbtn" onclick="toggleNotif(event)"><i data-lucide="bell"></i><span class="badge-dot"></span></div>
+    <div class="iconbtn" onclick="downloadCurrent()"><i data-lucide="download"></i></div>
+    <div class="iconbtn" onclick="toggleTheme()"><i data-lucide="moon" id="theme-ic"></i></div>
+    <div class="iconbtn files-toggle" onclick="toggleFiles()" title="Files (F)"><i data-lucide="folder-tree"></i></div>
+    <div class="iconbtn" onclick="toggleProfile(event)"><div class="avatar" style="width:24px;height:24px;font-size:10px">DU</div></div>
+  </header>
+
+  <div class="body-wrap">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="sidebar-resizer" id="sidebar-resizer" title="Drag to resize"></div>
+
+    <!-- ===== Main ===== -->
+    <main class="main">
+      <div class="content" id="content"></div>
+      <footer class="footer">© 2026 Descon — Partner in Progress · Assure LIQS (Laboratory Information &amp; Quality System) | All Rights Reserved.</footer>
+    </main>
+
+    <!-- ===== Right-docked file explorer ===== -->
+    <div class="filepanel-resizer" id="filepanel-resizer" title="Drag to resize"></div>
+    <aside class="filepanel" id="filepanel"></aside>
+  </div>
+</div>
+
+<!-- data + screens + app -->
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/data-extra.js"></script>
+<script src="js/data-descon.js"></script>
+<script src="js/ai-engine.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/screens/dashboard.js"></script>
+<script src="js/screens/site.js"></script>
+<script src="js/screens/labsheet.js"></script>
+<script src="js/screens/quality.js"></script>
+<script src="js/screens/special.js"></script>
+<script src="js/screens/iso.js"></script>
+<script src="js/screens/docs.js"></script>
+<script src="js/screens/chemicals.js"></script>
+<script src="js/screens/modules.js"></script>
+<script src="js/screens/files.js"></script>
+<script src="js/screens/ai.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
