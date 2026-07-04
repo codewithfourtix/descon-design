@@ -5,34 +5,84 @@ const state = {route:'urea', tab:'dashboard', period:'Daily', dateOffset:0};
 const COLLAPSED_GROUPS = new Set();
 function toggleGroup(name){ COLLAPSED_GROUPS.has(name)?COLLAPSED_GROUPS.delete(name):COLLAPSED_GROUPS.add(name); renderSidebar(); if(window.lucide)lucide.createIcons(); }
 
-/* ---------- Sidebar ---------- */
-function renderSidebar(){
-  const el = document.getElementById('sidebar');
-  let html = '';
-  let collapsed = false;
-  DATA.nav.forEach(n=>{
-    if(n.header){
-      collapsed = COLLAPSED_GROUPS.has(n.header);
-      const canCollapse = n.collapsible!==false;
-      html += `<div class="nav-section ${canCollapse?'sec-btn':''}" ${canCollapse?`onclick="toggleGroup('${n.header.replace(/'/g,"")}')"`:''}>
-        <span>${n.header}</span>${canCollapse?`<i data-lucide="chevron-down" class="ns-chev ${collapsed?'closed':''}"></i>`:''}</div>`;
-      return;
+/* ---------- Navigation (Rail + Panel) ---------- */
+const RAIL_GROUPS = [
+  { id: 'site', label: 'Overview', icon: 'layout-dashboard', type: 'route' },
+  { id: 'Plant Streams', label: 'Plant Streams', icon: 'factory', type: 'group' },
+  { id: 'Quality & Compliance', label: 'Quality & Compliance', icon: 'clipboard-check', type: 'group' },
+  { id: 'Inventory & Instruments', label: 'Inventory & Instruments', icon: 'box', type: 'group' },
+  { id: 'Operations', label: 'Operations', icon: 'calendar-days', type: 'group' },
+  { id: 'Administration', label: 'Administration', icon: 'settings', type: 'group' }
+];
+
+function renderNavigation() {
+  const railEl = document.getElementById('rail-items');
+  if(railEl) {
+    let rHtml = '';
+    RAIL_GROUPS.forEach(g => {
+      const active = (g.type === 'route' && state.route === g.id) || (g.type === 'group' && state.activeGroup === g.id);
+      rHtml += `<div class="rail-item ${active?'active':''}" onclick="setGroup('${g.id}', '${g.type}')" title="${g.label}">
+        <i data-lucide="${g.icon}"></i>
+      </div>`;
+    });
+    railEl.innerHTML = rHtml;
+  }
+
+  const panelEl = document.getElementById('module-panel');
+  if(!panelEl) return;
+  if(state.activeGroup === 'site' || !state.activeGroup) {
+    document.body.classList.add('module-panel-collapsed');
+    panelEl.innerHTML = '';
+  } else {
+    document.body.classList.remove('module-panel-collapsed');
+    let pHtml = `<div class="nav-section" style="padding-top:16px;font-size:11px;color:var(--brand);margin-bottom:8px">${state.activeGroup}</div>`;
+    
+    let inGroup = false;
+    DATA.nav.forEach(n => {
+      if(n.header) {
+        inGroup = (n.header === state.activeGroup);
+        return;
+      }
+      if(inGroup) {
+        if(n.subhead) { pHtml += `<div class="nav-subhead" style="margin-top:12px">${n.subhead}</div>`; return; }
+        const active = (state.route===n.id) ? 'active' : '';
+        pHtml += `<div class="nav-item ${active}" onclick="go('${n.id}')" title="${n.label}">
+          <i data-lucide="${n.icon}"></i><span>${n.label}</span>
+          ${n.expand?'<i data-lucide="chevron-right" class="chev"></i>':''}
+        </div>`;
+      }
+    });
+    panelEl.innerHTML = pHtml;
+  }
+}
+
+function setGroup(id, type) {
+  if (type === 'route') {
+    state.activeGroup = null;
+    go(id);
+  } else {
+    state.activeGroup = id;
+    
+    // Auto-select the first route in this group
+    let firstRoute = null;
+    let inGroup = false;
+    for(let n of DATA.nav) {
+      if(n.header) {
+        if(inGroup) break;
+        if(n.header === id) inGroup = true;
+      } else if(inGroup && n.id) {
+        firstRoute = n.id;
+        break;
+      }
     }
-    if(collapsed) return;                       // hide items under a collapsed group
-    if(n.subhead){ html += `<div class="nav-subhead">${n.subhead}</div>`; return; }
-    const active = (state.route===n.id) ? 'active' : '';
-    html += `<div class="nav-item ${active}" onclick="go('${n.id}')" title="${n.label}">
-      <i data-lucide="${n.icon}"></i><span>${n.label}</span>
-      ${n.expand?'<i data-lucide="chevron-right" class="chev"></i>':''}
-    </div>`;
-  });
-  html += `<div class="sidebar-user">
-      <div class="avatar">DU</div>
-      <div style="line-height:1.2"><div style="font-weight:600;color:#334;font-size:11.5px">demo user</div>
-      <div style="font-size:9.5px;color:#9aa3af">demo.user@descon.com</div></div>
-      <i data-lucide="log-out" style="margin-left:auto;width:15px;color:#d64545;cursor:pointer" onclick="event.stopPropagation();doLogout()"></i>
-    </div>`;
-  el.innerHTML = html;
+    
+    if (firstRoute && state.route !== firstRoute) {
+      go(firstRoute);
+    } else {
+      renderNavigation();
+    }
+    if(window.lucide) lucide.createIcons();
+  }
 }
 
 /* ---------- Module sub-tabs (Dashboard | Lab-01 | ... ) ---------- */
@@ -70,6 +120,15 @@ function tblToolbar(title, right){
 /* ---------- Router ---------- */
 function go(route){
   state.route = route;
+  if(route === 'site') {
+    state.activeGroup = null;
+  } else {
+    let currentGroup = null;
+    for(let n of DATA.nav) {
+      if(n.header) currentGroup = n.header;
+      else if(n.id === route) { state.activeGroup = currentGroup; break; }
+    }
+  }
   if(DATA.nav.find(n=>n.id===route&&n.product)) state.tab='dashboard';
   render();
 }
@@ -77,6 +136,7 @@ function setTab(tab){ state.tab = tab; render(); }
 
 function crumbFor(){
   const c = document.getElementById('crumb-page');
+  if(!c) return;
   const n = DATA.nav.find(x=>x.id===state.route);
   let txt = n?n.label:'Overview';
   if(n&&n.product){
@@ -87,9 +147,10 @@ function crumbFor(){
 }
 
 function render(){
-  renderSidebar();
+  renderNavigation();
   crumbFor();
   const c = document.getElementById('content');
+  if(!c) return;
   const r = state.route;
 
   if(DATA.nav.find(n=>n.id===r&&n.product)){
@@ -115,6 +176,21 @@ function render(){
   else if(r==='shift')     c.innerHTML = screenShiftMgmt();
   else if(r==='profile')   c.innerHTML = screenProfile();
   else                     c.innerHTML = screenGeneric(DATA.nav.find(n=>n.id===r).label);
+
+  const blurredPages = ['specs', 'docs', 'equip', 'registry', 'shiftlog', 'shift'];
+  if (blurredPages.includes(r)) {
+    const contentHtml = c.innerHTML;
+    c.innerHTML = `<div style="position:relative; height:100%;">
+      <div style="filter:blur(6px); opacity:0.4; pointer-events:none; user-select:none; height:100%; overflow:hidden;">${contentHtml}</div>
+      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:10;">
+        <div class="card" style="padding:24px 32px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.1); border-radius:12px; background:rgba(255,255,255,0.9); backdrop-filter:blur(4px);">
+          <i data-lucide="lock" style="width:40px; height:40px; color:var(--brand); margin:0 auto 16px; display:block;"></i>
+          <div style="font-size:18px; font-weight:700; color:var(--ink); margin-bottom:8px;">Demo Mode</div>
+          <div style="color:var(--muted); font-size:13px; max-width:240px; margin:0 auto; line-height:1.5;">This module is locked in the current demo environment. The underlying functionality exists but is hidden for this presentation.</div>
+        </div>
+      </div>
+    </div>`;
+  }
 
   if(window.lucide) lucide.createIcons();
   if(typeof afterRender==='function') afterRender();
@@ -166,36 +242,30 @@ function shiftDate(d){
   const base=new Date(2026,4,16,6,0), end=new Date(2026,4,18,17,15);
   base.setDate(base.getDate()+state.dateOffset); end.setDate(end.getDate()+state.dateOffset);
   const fmt=(dt,t)=>`${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}/${dt.getFullYear()} ${t}`;
-  document.getElementById('start-date').textContent=fmt(base,'06:00 AM');
-  document.getElementById('end-date').textContent=fmt(end,'05:15 PM');
+  const s = document.getElementById('start-date'); if(s) s.textContent=fmt(base,'06:00 AM');
+  const e = document.getElementById('end-date'); if(e) e.textContent=fmt(end,'05:15 PM');
   toast('Date range updated','info');
   render();
 }
-/* ---- Sidebar collapse + drag-to-resize ---- */
-function toggleSidebar(){
-  document.body.classList.toggle('sidebar-collapsed');
-  if(window.lucide) lucide.createIcons();
-}
-function initSidebarResize(){
-  const rz = document.getElementById('sidebar-resizer');
+
+function initPanelResize(){
+  const rz = document.getElementById('module-panel-resizer');
   if(!rz) return;
   let dragging=false;
-  const MIN=170, MAX=340;
+  const MIN=180, MAX=340;
   const onMove=e=>{
     if(!dragging) return;
-    let w = Math.max(MIN, Math.min(MAX, e.clientX));
-    document.documentElement.style.setProperty('--sidebar-w', w+'px');
+    let w = Math.max(MIN, Math.min(MAX, e.clientX - 64)); // subtract rail width
+    document.documentElement.style.setProperty('--module-panel-w', w+'px');
   };
   const onUp=()=>{ if(!dragging)return; dragging=false; document.body.classList.remove('resizing');
     document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
   rz.addEventListener('mousedown', e=>{
-    if(document.body.classList.contains('sidebar-collapsed')) return;
     dragging=true; document.body.classList.add('resizing');
     document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
     e.preventDefault();
   });
-  // double-click resets to default
-  rz.addEventListener('dblclick', ()=>document.documentElement.style.removeProperty('--sidebar-w'));
+  rz.addEventListener('dblclick', ()=>document.documentElement.style.removeProperty('--module-panel-w'));
 }
 function toggleTheme(){
   document.body.classList.toggle('dark');
@@ -262,6 +332,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // optional deep-link: #route or #route:tab (used for previews)
   const h = location.hash.replace('#','');
   if(h){ const [r,t]=h.split(':'); if(DATA.nav.find(n=>n.id===r)) state.route=r; if(t) state.tab=t; }
-  initSidebarResize();
+  initPanelResize();
   render();
 });

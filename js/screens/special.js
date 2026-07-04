@@ -11,26 +11,28 @@ function specialRows(){
 }
 
 function screenSpecial(){
-  const sp = DATA.special;
-  const tbl = makeTable('special',{
-    title:'Special Sample History', pageSize:13, search:['source','code','by','status','plant'],
-    toolbar:`<button class="btn btn-blue" onclick="raiseRequest()"><i data-lucide="plus"></i>Raise Request</button><button class="btn btn-green" onclick="exportGeneric('special','special-samples.csv')"><i data-lucide="download"></i>Export</button>`,
-    columns:[
-      {key:'id',label:'ID',render:v=>`<b style="color:#334">${v}</b>`},
-      {key:'plant',label:'PLANT',render:v=>`<span style="color:#0060b0;font-weight:600">${v}</span>`},
-      {key:'source',label:'SOURCE NAME'},
-      {key:'code',label:'CODE',render:v=>`<span style="color:#4b5563">${v}</span>`},
-      {key:'received',label:'RECEIVED AT',render:v=>`<span style="color:#6b7280">${v}</span>`},
-      {key:'params',label:'PARAMETERS',align:'center',render:v=>`<span class="chip">${v}</span>`},
-      {key:'status',label:'STATUS',render:v=>statusBadge(v)},
-      {key:'by',label:'REQUESTED BY'},
-      {key:'x',label:'ACTIONS',sortable:false,align:'center',render:(_,r)=>`<i data-lucide="eye" style="width:15px;color:#9aa3af;cursor:pointer" onclick="viewSpecial(${r.id})"></i>`},
-    ], data:specialRows()
-  });
+  const rows = specialRows();
+  
+  // Group rows by status for the pipeline board
+  const lanes = [
+    { title: 'Requested', items: rows.filter(r => r.status === 'Requested').map(r => ({title: `Req ${r.id}: ${r.source}`, meta: `${r.plant} · ${r.by}`})) },
+    { title: 'Approved', items: rows.filter(r => r.status === 'Request Approved').map(r => ({title: `Req ${r.id}: ${r.source}`, meta: `Waiting for sample · ${r.by}`})) },
+    { title: 'In Progress', items: rows.filter(r => r.status === 'In Progress').map(r => ({title: `Req ${r.id}: ${r.source}`, meta: `Testing ${r.params} params`})) },
+    { title: 'Completed', items: rows.filter(r => r.status === 'Results Approved' || r.status === 'Completed').map(r => ({title: `Req ${r.id}: ${r.source}`, meta: `Results finalized`})) },
+  ];
+
   return `
-  ${kpiRow(sp.kpis,4,true)}
-  <div style="height:10px"></div>
-  <div class="card">${tbl}</div>`;
+  <div class="workspace-board" style="height:calc(100vh - 120px)">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">Special Sample Pipeline</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-out"><i data-lucide="filter"></i>Filter</button>
+        <button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="raiseRequest()"><i data-lucide="plus"></i>Raise Request</button>
+      </div>
+    </div>
+    
+    ${renderPipelineBoard(lanes)}
+  </div>`;
 }
 
 function viewSpecial(id){

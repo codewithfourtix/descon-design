@@ -27,20 +27,61 @@ function screenDocs(){
   const d = DATA.docs;
   const cats=['All',...new Set(d.cards.map(c=>c.cat))];
   const list=docList();
-  const cards = list.length? list.map(({c,i})=>docCard(c,i)).join('')
-    : `<div class="empty" style="width:100%">No documents match your filter.</div>`;
-  return `
-  <div class="pageicon" style="font-size:24px">Documents & SOPs</div>
-  <div class="card" style="margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;flex-wrap:wrap">
-      <div class="mini-search" style="flex:1;min-width:220px"><i data-lucide="search" style="width:14px"></i><input placeholder="Search documents..." value="${DOC_Q}" oninput="docSearch(this.value)" style="width:100%"></div>
-      <select onchange="docFilter(this.value)" class="rp-select" style="padding:7px 10px">${cats.map(c=>`<option ${c===DOC_CAT?'selected':''}>${c}</option>`).join('')}</select>
-      <button class="btn btn-blue" onclick="docUpload()"><i data-lucide="upload"></i>Upload Document</button>
+  
+  const docRows = list.map(({c,i}) => `
+    <div class="queue-item" onclick="toast('Viewing ${c.name}')">
+      <div style="width:32px;height:40px;background:#fdecec;color:#e03131;display:grid;place-items:center;border-radius:6px"><i data-lucide="file-text"></i></div>
+      <div class="qi-content">
+        <div class="qi-title" style="color:var(--brand)">${c.name}</div>
+        <div class="qi-meta">${c.code} · ${c.cat}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:var(--muted)">
+        <div>${c.updated}</div>
+        <div>${c.size}</div>
+      </div>
     </div>
-  </div>
-  ${kpiRow(d.kpis,3)}
-  <div style="height:12px"></div>
-  <div style="display:flex;flex-wrap:wrap;gap:12px">${cards}</div>`;
+  `).join('') || `<div class="empty">No documents match your filter.</div>`;
+
+  return `
+  <div class="master-detail" style="height:calc(100vh - 120px)">
+    <div style="display:flex;flex-direction:column;gap:16px;overflow-y:auto;padding-right:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:18px;font-weight:700;color:var(--ink)">Controlled Document Vault</div>
+        <button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="docUpload()"><i data-lucide="upload"></i>Upload Document</button>
+      </div>
+      
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="mini-search" style="flex:1"><i data-lucide="search" style="width:14px"></i><input placeholder="Search documents..." value="${DOC_Q}" oninput="docSearch(this.value)"></div>
+        <select onchange="docFilter(this.value)" class="rp-select" style="padding:7px 10px">${cats.map(c=>`<option ${c===DOC_CAT?'selected':''}>${c}</option>`).join('')}</select>
+      </div>
+      
+      <div class="action-queue">${docRows}</div>
+    </div>
+    
+    <div class="detail-panel">
+      <div style="font-weight:700;color:var(--ink);font-size:14px;border-bottom:1px solid var(--line2);padding-bottom:12px">
+        Document Details
+      </div>
+      <div style="display:flex;justify-content:center;padding:24px 0;background:#f8fafb;border-radius:8px;border:1px solid var(--line)">
+        <i data-lucide="file-text" style="width:48px;height:48px;color:#e03131"></i>
+      </div>
+      <div style="text-align:center">
+        <div style="font-weight:700;color:var(--ink)">Standard Operating Procedure v2</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">SOP-2026-04 · Analytical Laboratory</div>
+      </div>
+      
+      <div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#fbfcfd;margin-top:12px">
+        <div class="kv" style="margin-bottom:8px"><span>Status</span><span class="badge b-green">Approved</span></div>
+        <div class="kv" style="margin-bottom:8px"><span>Last Updated</span><span style="color:var(--ink)">May 12, 2026</span></div>
+        <div class="kv"><span>Author</span><span style="color:var(--ink)">Ahmad R.</span></div>
+      </div>
+      
+      <div style="margin-top:auto;display:flex;gap:8px">
+        <button class="btn btn-out" style="flex:1;justify-content:center"><i data-lucide="eye"></i> View</button>
+        <button class="btn btn-green" style="flex:1;justify-content:center"><i data-lucide="download"></i> Download</button>
+      </div>
+    </div>
+  </div>`;
 }
 function docSearch(v){DOC_Q=v.toLowerCase();const wrap=document.querySelectorAll('.content > div:last-child')[0];render();const inp=document.querySelector('.mini-search input');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
 function docFilter(v){DOC_CAT=v;render();}

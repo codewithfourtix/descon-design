@@ -141,3 +141,71 @@ function tblPage(id,d){const t=TBL[id];const pages=Math.max(1,Math.ceil(_rows(id
 function tblGo(id,p){TBL[id].page=p;rerenderTable(id);}
 function tblPageSize(id,n){TBL[id].pageSize=parseInt(n);TBL[id].page=1;rerenderTable(id);}
 function tblData(id){return _rows(id);}
+
+/* ============ Workspace Structural Helpers ============ */
+
+function renderStatusCluster(items) {
+  return `<div class="status-cluster">
+    ${items.map(item => `<div class="status-item">
+      <div class="si-val" style="color:${item.color||'var(--ink)'}">${item.val}</div>
+      <div class="si-lbl">${item.label}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderActionQueue(items, actionClick = '') {
+  return `<div class="action-queue">
+    ${items.map(item => `<div class="queue-item ${item.priority||''}" onclick="${actionClick}">
+      <div class="qi-content">
+        <div class="qi-title">${item.title}</div>
+        <div class="qi-meta">${item.meta}</div>
+      </div>
+      <i data-lucide="chevron-right" style="color:var(--muted2);width:16px"></i>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderPipelineBoard(lanes) {
+  return `<div class="pipeline-board">
+    ${lanes.map(lane => `<div class="pipeline-lane">
+      <div class="lane-head"><span>${lane.title}</span><span class="lane-count">${lane.items.length}</span></div>
+      ${lane.items.map(item => `<div class="card card-pad" style="padding:10px;font-size:11.5px;cursor:pointer" onclick="openDrawer('Item Details','<div class=\\'empty\\'>Details for ${item.title}</div>')">
+        <div style="font-weight:600;margin-bottom:4px;color:var(--ink)">${item.title}</div>
+        <div style="color:var(--muted2)">${item.meta}</div>
+      </div>`).join('')}
+    </div>`).join('')}
+  </div>`;
+}
+
+function openDrawer(title, body) {
+  const d = document.getElementById('assistant-drawer');
+  if(!d) return;
+  d.innerHTML = `
+    <div class="fp-head" style="justify-content:space-between;background:#fbfcfd">
+      <div class="fp-title">${title}</div>
+      <div class="fp-icon" onclick="closeDrawer()"><i data-lucide="x"></i></div>
+    </div>
+    <div style="padding:16px;overflow-y:auto;flex:1">${body}</div>
+  `;
+  document.body.classList.add('assistant-open');
+  if(window.lucide) lucide.createIcons();
+}
+
+function closeDrawer() {
+  document.body.classList.remove('assistant-open');
+}
+
+function toggleAssistant() {
+  if (document.body.classList.contains('assistant-open')) {
+    closeDrawer();
+  } else {
+    openDrawer('Operations Assistant', `
+      <div class="chat-wrap" style="height:auto">
+        <div class="chat-body" style="padding:0">
+          <div class="msg bot"><div class="bot-av" style="background:var(--brand)"><i data-lucide="sparkles"></i></div><div class="bubble">How can I assist with this workspace?</div></div>
+        </div>
+      </div>
+      <div class="chat-input" style="margin:16px 0"><input placeholder="Ask assistant..."><div class="send"><i data-lucide="send"></i></div></div>
+    `);
+  }
+}

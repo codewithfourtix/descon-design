@@ -15,26 +15,64 @@ function aiBubble(m){
 function screenAI(){
   const msgs = DATA.ai.messages.map(aiBubble).join('');
   return `
-  <div class="pageicon" style="font-size:24px">Assistant</div>
-  <div class="card chat-wrap">
-    <div class="chat-head">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="bot-av"><i data-lucide="bot" style="width:17px"></i></div>
-        <div><div style="font-weight:600;color:#334">Descon Assure Assistant</div>
-        <div style="font-size:10.5px;color:#9aa3af">Demo mode · multi-agent orchestration (mocked, no API)</div></div>
+  <div class="workspace-split" style="height:calc(100vh - 80px)">
+    <div style="display:flex;flex-direction:column;gap:16px;overflow-y:auto;padding-right:4px">
+      <div style="font-size:20px;font-weight:700;color:var(--ink)">Operations Command Center</div>
+      
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="card card-pad" style="background:#f8fafb">
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">SYSTEM STATUS</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span class="badge b-green">Online</span> <span style="font-size:13px;font-weight:600;color:var(--ink)">Data Pipeline</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge b-green">Online</span> <span style="font-size:13px;font-weight:600;color:var(--ink)">Agent Network</span>
+          </div>
+        </div>
+        <div class="card card-pad" style="background:#f8fafb">
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">ACTIVE AGENTS</div>
+          <div style="display:flex;gap:4px">
+            <div class="icon-sq" style="background:var(--brand);color:#fff" title="Operations Analyst"><i data-lucide="bar-chart-2"></i></div>
+            <div class="icon-sq" style="background:var(--amber);color:#fff" title="Quality Monitor"><i data-lucide="microscope"></i></div>
+            <div class="icon-sq" style="background:var(--teal);color:#fff" title="Inventory Forecaster"><i data-lucide="flask-conical"></i></div>
+            <div class="icon-sq" style="background:var(--descon-red);color:#fff" title="Safety Compliance"><i data-lucide="shield-alert"></i></div>
+          </div>
+        </div>
       </div>
-      <div style="color:#d64545;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px" onclick="clearChat()"><i data-lucide="trash-2" style="width:14px"></i>Clear Chat</div>
+      
+      <div class="card" style="flex:1;display:flex;flex-direction:column">
+        <div class="card-head"><div class="card-title">Real-time Operations Log</div></div>
+        <div class="card-pad" style="flex:1;background:#1e293b;color:#e2e8f0;font-family:monospace;font-size:12px;overflow-y:auto;line-height:1.6">
+          <div style="color:#4ade80">[sys] Network synchronization complete.</div>
+          <div style="color:#94a3b8">[log] 14:02 - Plant: Urea - Shift: B - Samples parsed: 42</div>
+          <div style="color:#fcd34d">[warn] 14:03 - Quality: Free Ammonia (U-8021) 0.82 wt% > 0.50 wt% (Off-spec)</div>
+          <div style="color:#4ade80">[ai] Monitor triggered. Alert dispatched to Shift In-charge.</div>
+          <div style="color:#94a3b8">[log] 14:05 - Inventory: Reagent Sulphuric Acid checked. Balance: 40L. Status: OK.</div>
+          <div style="color:#fcd34d">[warn] 14:08 - Inventory: Ammonia Buffer checked. Balance: 0L. Critical!</div>
+          <div style="color:#4ade80">[ai] Forecaster generated Purchase Req #4012. Pending approval.</div>
+          <div style="color:#94a3b8">[log] 14:15 - Awaiting user queries...</div>
+        </div>
+      </div>
     </div>
-    <div class="chat-body" id="chat-body">${msgs}</div>
-    <div class="chat-suggest" id="chat-suggest" style="display:flex;flex-wrap:wrap;gap:7px;padding:0 14px 6px">
-      ${['How many samples were missed last week?','Which chemicals need reordering?','Show shift performance','Off-spec summary','Audit status'].map(s=>`<span class="sugg" onclick="askSuggest(this)">${s}</span>`).join('')}
+    
+    <div class="detail-panel chat-wrap" style="padding:0;display:flex;flex-direction:column">
+      <div class="chat-head" style="padding:16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="bot-av"><i data-lucide="sparkles" style="width:17px"></i></div>
+          <div><div style="font-weight:700;color:var(--ink)">Descon Operations Assistant</div>
+          <div style="font-size:10.5px;color:var(--muted)">Multi-agent orchestration</div></div>
+        </div>
+        <div style="color:var(--descon-red);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px" onclick="clearChat()"><i data-lucide="trash-2" style="width:14px"></i>Clear</div>
+      </div>
+      <div class="chat-body" id="chat-body" style="flex:1;padding:16px;background:#fbfcfd">${msgs}</div>
+      <div class="chat-suggest" id="chat-suggest" style="display:flex;flex-wrap:wrap;gap:7px;padding:8px 16px">
+        ${['How many samples were missed last week?','Which chemicals need reordering?','Show shift performance','Off-spec summary'].map(s=>`<span class="sugg" onclick="askSuggest(this)">${s}</span>`).join('')}
+      </div>
+      <div class="chat-input" style="padding:12px 16px;background:#fff">
+        <input id="chat-in" placeholder="Ask about samples, compliance, shifts..." onkeydown="if(event.key==='Enter')sendChat()">
+        <div class="send" id="chat-send" onclick="sendChat()"><i data-lucide="send" style="width:15px"></i></div>
+      </div>
     </div>
-    <div class="chat-input">
-      <input id="chat-in" placeholder="Ask about samples, compliance, shifts, or lab data..." onkeydown="if(event.key==='Enter')sendChat()">
-      <div class="send" id="chat-send" onclick="sendChat()"><i data-lucide="send" style="width:15px"></i></div>
-    </div>
-    <div style="font-size:10.5px;color:#9aa3af;padding:2px 16px 8px;display:flex;align-items:center;gap:5px">
-      <i data-lucide="info" style="width:12px"></i>Demo responses are generated from mock data — no external API is called.</div>
   </div>`;
 }
 

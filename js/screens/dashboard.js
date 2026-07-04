@@ -17,43 +17,62 @@ let ACTIVE_DASH = null;
 function screenDashboard(){
   const d = DATA.getStreamDash ? DATA.getStreamDash(state.route) : DATA.dash;
   ACTIVE_DASH = d;
-  const reviewTbl = makeTable('inreview',{
-    title:'In Review', pageSize:10, search:['id','area','plant','status','analyst'],
-    toolbar:`<button class="btn btn-green" onclick="exportGeneric('inreview','in-review.csv')"><i data-lucide="download"></i>Export</button>`,
-    columns:[
-      {key:'id',label:'SAMPLE ID',render:v=>`<b style="color:#0060b0">${v}</b>`},
-      {key:'area',label:'SAMPLE AREA'},
-      {key:'plant',label:'PLANT',render:v=>`<span style="color:#0060b0;font-weight:600">${v}</span>`},
-      {key:'status',label:'STATUS',render:v=>`<span class="badge b-amber">${v}</span>`},
-      {key:'pending',label:'PENDING',align:'center'},
-      {key:'logged',label:'LOGGED AT'},
-      {key:'analyst',label:'ANALYST'},
-    ], data:DATA.inReview
-  });
+  
+  // Transform KPIs into status cluster format
+  const statusItems = d.kpis.slice(0, 4).map(k => ({
+    val: k.v, label: k.l, color: k.l.includes('Routine') ? 'var(--descon-red)' : 'var(--brand)'
+  }));
+
+  // Mock an action queue
+  const actionItems = DATA.inReview.slice(0, 5).map(r => ({
+    title: `Sample ${r.id} pending review`,
+    meta: `${r.area} · Analyst: ${r.analyst}`,
+    priority: r.status === 'Late' ? 'high' : 'med'
+  }));
+
+  const actionQ = renderActionQueue(actionItems, `openDrawer('Sample Actions', '<div class=\\'empty\\'>Action details...</div>')`);
+  
   return `
-  ${kpiRow(d.kpis,9,true)}
-  <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)">
-    <div class="card">
-      <div class="card-head"><div class="card-title">Shift Wise Samples &amp; Compliance</div></div>
-      <div style="padding:2px 4px">${shiftTable(d.shift)}</div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-title">Specification Conformance <span style="font-weight:400;color:#9aa3af;font-size:10px">by parameter</span></div>${chartTools()}</div>
-      <div class="card-pad" style="height:250px"><canvas id="c-conformance"></canvas></div>
-    </div>
-  </div>
-  <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)">
-    <div class="card">${reviewTbl}</div>
-    <div class="card">
-      <div class="card-head"><div class="card-title">SPC Control Chart <span style="font-weight:400;color:#9aa3af;font-size:10px">· ${d.spc.param}</span></div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:10px;color:#8a93a0">n=14 · ±3σ limits</span>
-          ${chartTools()}
+  <div class="workspace-split">
+    <div class="workspace-board">
+      <div style="margin-bottom:8px">
+        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <i data-lucide="activity" style="color:var(--brand)"></i> Operational Status
+        </div>
+        ${renderStatusCluster(statusItems)}
+      </div>
+      
+      <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Shift Wise Samples &amp; Compliance</div></div>
+          <div style="padding:2px 4px;overflow-x:auto;">${shiftTable(d.shift)}</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Specification Conformance <span style="font-weight:400;color:#9aa3af;font-size:10px">by parameter</span></div>${chartTools()}</div>
+          <div class="card-pad" style="height:250px"><canvas id="c-conformance"></canvas></div>
         </div>
       </div>
-      <div class="card-pad" style="height:250px"><canvas id="c-spc"></canvas></div>
+      
+      <div class="card">
+        <div class="card-head"><div class="card-title">SPC Control Chart <span style="font-weight:400;color:#9aa3af;font-size:10px">· ${d.spc.param}</span></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;color:#8a93a0">n=14 · ±3σ limits</span>
+            ${chartTools()}
+          </div>
+        </div>
+        <div class="card-pad" style="height:250px"><canvas id="c-spc"></canvas></div>
+      </div>
+    </div>
+    
+    <div class="detail-panel">
+      <div style="font-weight:700;color:var(--ink);font-size:13px;display:flex;justify-content:space-between">
+        Action Queue <span class="badge b-amber">${actionItems.length} Pending</span>
+      </div>
+      ${actionQ}
+      <button class="btn btn-out" style="width:100%;justify-content:center" onclick="toast('Opening full queue')">View All Pending</button>
+      
+      <div style="font-weight:700;color:var(--ink);font-size:13px;margin-top:16px">Critical Exceptions</div>
+      ${renderActionQueue([{title:'Equipment offline', meta:'Unit 4 Blower', priority:'high'}])}
     </div>
   </div>`;
 }
