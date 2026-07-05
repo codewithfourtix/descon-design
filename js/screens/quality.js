@@ -4,36 +4,74 @@ function screenQuality(){
   const q = DATA.getStreamQuality ? DATA.getStreamQuality(state.route) : DATA.quality;
   ACTIVE_QUAL = q;
   const recTbl = makeTable('qrec',{
-    title:'Detailed Reports Records', pageSize:10, search:['id','parameter','status','shift','reviewer'],
-    toolbar:`<button class="btn btn-green" onclick="exportGeneric('qrec','quality-records.csv')"><i data-lucide="download"></i>Export</button>`,
+    title:'Detailed Reports Records', pageSize:5, search:['id','parameter','status','shift','reviewer'],
     columns:[
-      {key:'id',label:'SAMPLE ID',render:v=>`<b style="color:#0060b0">${v}</b>`},
+      {key:'id',label:'SAMPLE ID',render:v=>`<b style="color:var(--brand);cursor:pointer" onclick="toast('Loading investigation for ${v}')">${v}</b>`},
       {key:'parameter',label:'PARAMETER'},
       {key:'result',label:'RESULT',align:'center'},
-      {key:'spec',label:'SPEC',align:'center',render:v=>`<span style="color:#6b7280">${v}</span>`},
+      {key:'spec',label:'SPEC',align:'center',render:v=>`<span style="color:var(--muted)">${v}</span>`},
       {key:'status',label:'STATUS',render:v=>`<span class="badge ${v==='Off-Spec'?'b-red':'b-green'}">${v}</span>`},
-      {key:'shift',label:'SHIFT'},
       {key:'reviewer',label:'REVIEWED BY'},
     ], data:DATA.qualityRecords
   });
+  
   return `
-  ${kpiRow(q.kpis,8,true)}
-  <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:1fr 1fr">
-    <div class="card"><div class="card-head"><div class="card-title">Daily Compliance</div>${chartTools()}</div>
-      <div class="card-pad" style="height:210px"><canvas id="q-compliance"></canvas></div></div>
-    <div class="card"><div class="card-head"><div class="card-title">Routine vs Non Routine Samples</div>${chartTools()}</div>
-      <div class="card-pad" style="height:210px"><canvas id="q-routine"></canvas></div></div>
-  </div>
-  <div style="height:10px"></div>
-  <div class="grid" style="grid-template-columns:1fr 1fr">
-    <div class="card"><div class="card-head"><div class="card-title">Off Spec Trend Over Time</div>${chartTools()}</div>
-      <div class="card-pad" style="height:210px"><canvas id="q-offspec"></canvas></div></div>
-    <div class="card"><div class="card-head"><div class="card-title">Parameter-wise Deviation Frequency</div>${chartTools()}</div>
-      <div class="card-pad" style="height:210px"><canvas id="q-deviation"></canvas></div></div>
-  </div>
-  <div style="height:10px"></div>
-  <div class="card">${recTbl}</div>`;
+  <div class="master-detail" style="height:calc(100vh - 120px)">
+    <div style="display:flex;flex-direction:column;gap:16px;overflow-y:auto;padding-right:4px">
+      ${renderStatusCluster([
+        {val: '98.2%', label: 'Compliance Rate', color: 'var(--brand)'},
+        {val: '3', label: 'Active Off-Specs', color: 'var(--descon-red)'},
+        {val: '12', label: 'Pending Reviews', color: 'var(--amber)'}
+      ])}
+      
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="card"><div class="card-head"><div class="card-title">Daily Compliance</div>${chartTools()}</div>
+          <div class="card-pad" style="height:180px"><canvas id="q-compliance"></canvas></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">Parameter Deviation</div>${chartTools()}</div>
+          <div class="card-pad" style="height:180px"><canvas id="q-deviation"></canvas></div></div>
+      </div>
+      
+      <div class="card">${recTbl}</div>
+    </div>
+    
+    <div class="detail-panel">
+      <div style="font-weight:700;color:var(--ink);font-size:14px;border-bottom:1px solid var(--line2);padding-bottom:12px">
+        Investigation Context
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-sq" style="background:var(--descon-red);color:#fff;border:none"><i data-lucide="triangle-alert"></i></div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">U-8021 <span class="badge b-red">Off-Spec</span></div>
+          <div style="font-size:11.5px;color:var(--muted)">Logged 2 hours ago</div>
+        </div>
+      </div>
+      
+      <div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#fbfcfd">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase">Parameter details</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:600;color:var(--ink)">Free Ammonia</span>
+          <span style="color:var(--descon-red);font-weight:700">0.82 wt%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)">
+          <span>Spec Limit</span>
+          <span>< 0.50 wt%</span>
+        </div>
+      </div>
+      
+      <div>
+        <div style="font-weight:600;color:var(--ink);margin-bottom:8px">Recommended Actions</div>
+        ${renderActionQueue([
+          {title:'Initiate root cause analysis', meta:'Assigned to: Lab Supervisor'},
+          {title:'Re-sample at points A, B', meta:'Priority: High', priority:'high'}
+        ])}
+      </div>
+      
+      <div style="margin-top:auto">
+        <button class="btn btn-teal" style="width:100%;justify-content:center;background:var(--brand);color:#fff" onclick="toast('Logging CAPA')"><i data-lucide="clipboard-check"></i> Log CAPA</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function qualityCharts(){

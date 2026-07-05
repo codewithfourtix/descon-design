@@ -1,8 +1,17 @@
 /* ===== Additional functional modules ===== */
 
 function moduleShell(title, kpis, tableId){
-  return `<div class="pageicon" style="font-size:24px">${title}</div>${kpis||''}<div style="height:10px"></div>
-    <div class="card">${tableId}</div>`;
+  return `
+  <div style="display:flex;flex-direction:column;gap:16px;height:calc(100vh - 80px)">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:20px;font-weight:700;color:var(--ink)">${title}</div>
+      <button class="btn btn-out" onclick="toast('Exporting data...')"><i data-lucide="download"></i> Export</button>
+    </div>
+    ${kpis ? `<div style="margin-bottom:-6px">${kpis}</div>` : ''}
+    <div class="card" style="flex:1;display:flex;flex-direction:column">
+      ${tableId}
+    </div>
+  </div>`;
 }
 
 /* ---------- User Management ---------- */

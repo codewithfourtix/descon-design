@@ -13,47 +13,44 @@
 </head>
 <body>
 <div class="app">
-  <!-- ===== Top bar ===== -->
-  <header class="topbar">
-    <div class="iconbtn sidebar-toggle" onclick="toggleSidebar()" title="Collapse / expand menu"><i data-lucide="panel-left"></i></div>
-    <div class="logo">
-      <img class="mark-img" src="assets/logo.jpg" alt="Descon">
-      <span class="wordmark">Assure<small>LIQS</small></span>
-    </div>
-    <div class="back-btn" onclick="history.length>1&&window.history.back()"><i data-lucide="chevron-left"></i></div>
-    <div class="crumb"><b>Descon</b><span class="sep">›</span><span id="crumb-page">Overview</span></div>
+  <div class="workspace-layout">
+    <!-- ===== Left Compact Icon Rail ===== -->
+    <nav class="nav-rail">
+      <div class="rail-logo" title="Descon Assure LIQS">
+        <img class="mark-img" src="assets/logo.jpg" alt="Descon">
+      </div>
+      <div class="rail-items" id="rail-items">
+        <!-- Rendered via JS -->
+      </div>
+      <div class="rail-bottom">
+        <div class="iconbtn rail-btn" onclick="toggleNotif(event)" title="Notifications"><i data-lucide="bell"></i><span class="badge-dot"></span></div>
+        <div class="iconbtn rail-btn files-toggle" onclick="toggleFiles()" title="Files (F)"><i data-lucide="folder-tree"></i></div>
+        <div class="iconbtn rail-btn" onclick="toggleProfile(event)"><div class="avatar" style="width:28px;height:28px;font-size:11px">DU</div></div>
+      </div>
+    </nav>
 
-    <div class="spacer"></div>
+    <!-- ===== Secondary Module Panel ===== -->
+    <aside class="module-panel" id="module-panel"></aside>
+    <div class="panel-resizer" id="module-panel-resizer" title="Drag to resize"></div>
 
-    <div class="navchev" onclick="shiftDate(-1)"><i data-lucide="chevron-left"></i></div>
-    <div class="datebox"><label>Start Date &amp; Time</label><div class="val"><span id="start-date">05/16/2026 06:00 AM</span><i data-lucide="calendar" style="width:12px"></i></div></div>
-    <div class="navchev" onclick="shiftDate(1)"><i data-lucide="chevron-right"></i></div>
-    <div class="navchev" onclick="shiftDate(-1)"><i data-lucide="chevron-left"></i></div>
-    <div class="datebox" id="end-date-box"><label>End Date &amp; Time</label><div class="val"><span id="end-date">05/18/2026 05:15 PM</span><i data-lucide="calendar" style="width:12px"></i></div></div>
-    <div class="navchev" onclick="shiftDate(1)"><i data-lucide="chevron-right"></i></div>
+    <!-- ===== Main Work Area ===== -->
+    <main class="main-workspace">
+      <!-- Command Bar -->
+      <header class="command-bar">
+        <div class="crumb"><span id="crumb-page">Overview</span></div>
+        <div class="spacer"></div>
+        <div id="page-commands" class="page-commands"></div>
+        <div class="search"><i data-lucide="search" style="width:14px"></i><input id="global-search" placeholder="Search operations, samples, areas..." onkeydown="if(event.key==='Enter')globalSearch(this.value)"></div>
+        <div class="iconbtn" onclick="downloadCurrent()"><i data-lucide="download"></i></div>
+        <div class="iconbtn" onclick="toggleAssistant()" title="AI Assistant"><i data-lucide="sparkles"></i></div>
+      </header>
 
-    <div class="seg" id="period-seg">
-      <button class="active" onclick="setPeriod('Daily',this)">Daily</button><button onclick="setPeriod('MTD',this)">MTD</button><button onclick="setPeriod('QTD',this)">QTD</button><button onclick="setPeriod('YTD',this)">YTD</button>
-    </div>
-
-    <div class="search"><i data-lucide="search" style="width:14px"></i><input id="global-search" placeholder="Search sample plans, areas," onkeydown="if(event.key==='Enter')globalSearch(this.value)"></div>
-    <div class="iconbtn" onclick="toggleNotif(event)"><i data-lucide="bell"></i><span class="badge-dot"></span></div>
-    <div class="iconbtn" onclick="downloadCurrent()"><i data-lucide="download"></i></div>
-    <div class="iconbtn" onclick="toggleTheme()"><i data-lucide="moon" id="theme-ic"></i></div>
-    <div class="iconbtn files-toggle" onclick="toggleFiles()" title="Files (F)"><i data-lucide="folder-tree"></i></div>
-    <div class="iconbtn" onclick="toggleProfile(event)"><div class="avatar" style="width:24px;height:24px;font-size:10px">DU</div></div>
-  </header>
-
-  <div class="body-wrap">
-    <!-- ===== Sidebar ===== -->
-    <aside class="sidebar" id="sidebar"></aside>
-    <div class="sidebar-resizer" id="sidebar-resizer" title="Drag to resize"></div>
-
-    <!-- ===== Main ===== -->
-    <main class="main">
       <div class="content" id="content"></div>
       <footer class="footer">© 2026 Descon — Partner in Progress · Assure LIQS (Laboratory Information &amp; Quality System) | All Rights Reserved.</footer>
     </main>
+
+    <!-- ===== Global Assistant Drawer ===== -->
+    <aside class="assistant-drawer" id="assistant-drawer"></aside>
 
     <!-- ===== Right-docked file explorer ===== -->
     <div class="filepanel-resizer" id="filepanel-resizer" title="Drag to resize"></div>
