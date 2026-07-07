@@ -46,7 +46,21 @@ function viewSpecial(id){
     <div class="kv"><span>Parameters</span><span>${r[5]}</span></div>
     <div class="kv"><span>Status</span><span>${r[6]}</span></div>
     <div class="kv"><span>Requested By</span><span>${r[7]}</span></div>`,
-    actions:[{label:'Close',cls:'btn-out',fn:'closeModal()'},{label:'Download CoA',cls:'btn-green',icon:'download',fn:`closeModal();toast('Certificate generated (demo)','ok')`}]});
+    actions:[{label:'Close',cls:'btn-out',fn:'closeModal()'},
+      {label:'Email via Outlook',cls:'btn-out',icon:'mail',fn:`closeModal();emailCoaViaOutlook('${r[2]}','${r[0]}')`},
+      {label:'Download CoA',cls:'btn-green',icon:'download',fn:`closeModal();toast('Certificate generated (demo)','ok')`}]});
+}
+
+function emailCoaViaOutlook(source, id){
+  toast('Preparing Certificate of Analysis…','info');
+  setTimeout(()=>emailReportViaOutlook({
+    report:'Certificate of Analysis — '+source,
+    file:('CoA_'+String(source).replace(/[^\w]+/g,'_')+'.pdf'),
+    size:'196 KB',
+    reportKey:'coa', listId:'plant',
+    subject:`Certificate of Analysis — ${source} (Sample ${id})`,
+    body:`Dear team,\n\nPlease find attached the Certificate of Analysis for ${source} (Sample ID ${id}), generated from Descon Assure LIQS.\n\nKindly acknowledge receipt.\n\nRegards,\nDescon Assure LIQS`,
+  }), 700);
 }
 
 function raiseRequest(){

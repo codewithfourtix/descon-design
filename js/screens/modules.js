@@ -224,8 +224,12 @@ function screenProfile(){
         <button class="btn btn-green" onclick="toast('Profile saved successfully','ok')"><i data-lucide="check"></i>Save Changes</button>
       </div>
     </div>
-  </div>`;
+  </div>
+
+  ${renderIntegrations()}`;
 }
+
+/* Outlook integration management lives in js/outlook.js (manageOutlook) */
 
 /* ---------- shared row actions + generic CRUD helpers ---------- */
 function rowActions(kind,id){

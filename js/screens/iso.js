@@ -71,10 +71,22 @@ function screenISO(){
       </div>
       
       <div style="margin-top:auto">
-        <button class="btn btn-out" style="width:100%;justify-content:center" onclick="toast('Generating report...')"><i data-lucide="file-text"></i> Generate Report</button>
+        <button class="btn btn-out" style="width:100%;justify-content:center" onclick="generateIsoReport()"><i data-lucide="file-text"></i> Generate &amp; Email Report</button>
       </div>
     </div>
   </div>`;
+}
+
+/* Generate the audit-compliance report, then hand off to Outlook for distribution */
+function generateIsoReport(){
+  toast('Generating audit compliance report…','info');
+  setTimeout(()=>emailReportViaOutlook({
+    report:'ISO 17025 Audit Compliance Report',
+    file:'ISO17025_Compliance_Report_Jul2026.pdf',
+    size:'312 KB',
+    reportKey:'iso', listId:'iso',
+    subject:'ISO 17025 Audit Compliance Report — 07 Jul 2026',
+  }), 900);
 }
 
 /* ISO tab state + CRUD */

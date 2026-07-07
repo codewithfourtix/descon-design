@@ -5,6 +5,7 @@ function screenQuality(){
   ACTIVE_QUAL = q;
   const recTbl = makeTable('qrec',{
     title:'Detailed Reports Records', pageSize:5, search:['id','parameter','status','shift','reviewer'],
+    toolbar:`<button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="emailQualityReport()"><i data-lucide="mail"></i>Email Report</button>`,
     columns:[
       {key:'id',label:'SAMPLE ID',render:v=>`<b style="color:var(--brand);cursor:pointer" onclick="toast('Loading investigation for ${v}')">${v}</b>`},
       {key:'parameter',label:'PARAMETER'},
@@ -72,6 +73,18 @@ function screenQuality(){
       </div>
     </div>
   </div>`;
+}
+
+function emailQualityReport(){
+  const label = (typeof PRODUCT_LABELS!=='undefined' && PRODUCT_LABELS[state.route]) ? PRODUCT_LABELS[state.route] : 'Stream';
+  toast('Compiling quality & OOS report…','info');
+  setTimeout(()=>emailReportViaOutlook({
+    report:`${label} — Quality & OOS Report`,
+    file:`Quality_OOS_Report_${label.replace(/[^\w]+/g,'_')}.pdf`,
+    size:'274 KB',
+    reportKey:'qoos', listId:'qc-lead',
+    subject:`${label} — Quality & OOS Report (07 Jul 2026)`,
+  }), 800);
 }
 
 function qualityCharts(){
