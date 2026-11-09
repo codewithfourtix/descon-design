@@ -183,7 +183,9 @@ function typeOut(html){
       setTimeout(step, 90+Math.random()*90);
     } else {
       target.classList.remove('typing-cursor');
-      wrap.querySelector('#typing-time').textContent=nowTime();
+      target.removeAttribute('id');
+      const tt=wrap.querySelector('#typing-time'); tt.textContent=nowTime(); tt.removeAttribute('id');
+      if(window.lucide) lucide.createIcons();
       AI_BUSY=false;
       const s=document.getElementById('chat-send'); if(s)s.style.opacity=1;
       scrollChat();

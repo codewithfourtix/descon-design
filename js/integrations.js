@@ -95,20 +95,25 @@ function connectApp(id){
   toast('Connecting to '+a.name+' (Descon tenant)…','info');
   setTimeout(()=>{
     a.status='connected';
-    if(typeof state!=='undefined' && state.route==='profile') render();
+    if(a.id==='outlook'&&typeof OUTLOOK!=='undefined') OUTLOOK.connected=true;
+    audit('Connected integration','Integrations',a.name);
+    if(typeof state!=='undefined' && state.route==='profile') render(); else persistSoon();
     toast(a.name+' connected','ok');
   }, 1000);
 }
 function disconnectApp(id){
   const a=MS_INTEGRATIONS.find(x=>x.id===id); if(!a) return;
+  if(!can('Admin','Disconnecting an integration')) return;
   a.status='available';
-  if(typeof state!=='undefined' && state.route==='profile') render();
+  if(a.id==='outlook'&&typeof OUTLOOK!=='undefined') OUTLOOK.connected=false;
+  audit('Disconnected integration','Integrations',a.name);
+  if(typeof state!=='undefined' && state.route==='profile') render(); else persistSoon();
   toast(a.name+' disconnected','info');
 }
 function manageApp(id){
   const a=MS_INTEGRATIONS.find(x=>x.id===id); if(!a) return;
   if(a.id==='outlook'){ manageOutlook(); return; }
-  const acct=(typeof OUTLOOK!=='undefined')?OUTLOOK.account.email:'demo.user@descon.com';
+  const acct=me().email||((typeof OUTLOOK!=='undefined')?OUTLOOK.account.email:'');
   openModal({title:a.name, body:`
     <div class="ol-int" style="margin-bottom:14px">
       <div class="ol-logo">${msLogo(a.id,30)}</div>

@@ -8,7 +8,7 @@
 
 const OUTLOOK = {
   connected: true,
-  account: { name:'demo user', email:'demo.user@descon.com' },
+  account: { name:'QC Manager', email:'qc.manager@descon.com' },
   /* Named distribution lists. Recipients are seeded from DATA.users by role
      where possible, so the demo feels wired to the directory — then editable. */
   lists: [
@@ -77,7 +77,20 @@ let OL = null;
    cfg: { report, file, size, listId, reportKey, subject, body } — all optional.
    If reportKey is given, the destination list comes from report-routing so
    changes made in Manage → Report routing are reflected here. */
+function olConnected(){ const a=(typeof MS_INTEGRATIONS!=='undefined')&&MS_INTEGRATIONS.find(x=>x.id==='outlook'); return !a||a.status==='connected'; }
+function outlookDraft(){
+  const s=document.getElementById('ol-subject'); if(s&&OL) OL.subject=s.value;
+  OUTLOOK.drafts=OUTLOOK.drafts||[];
+  OUTLOOK.drafts.unshift({report:OL.report,subject:OL.subject,to:OL.recipients.length,at:fmtStamp()});
+  audit('Saved email draft','Reports',OL.subject); closeModal(); persistSoon(); toast('Saved to Outlook Drafts','ok');
+}
 function emailReportViaOutlook(cfg={}){
+  if(!olConnected()){
+    window.__olPending=cfg;
+    openModal({title:'Outlook is disconnected', body:`<div style="display:flex;gap:12px;align-items:center">${outlookLogoSVG(34)}<div style="color:var(--muted);line-height:1.5">Reconnect Outlook to email reports and certificates straight from Assure LIQS.</div></div>`,
+      actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Reconnect Outlook',cls:'btn-blue',icon:'plug',fn:`closeModal();connectApp('outlook');setTimeout(()=>emailReportViaOutlook(window.__olPending),1300)`}]});
+    return;
+  }
   const routed = cfg.reportKey ? (OUTLOOK.reportTypes.find(t=>t.key===cfg.reportKey)||{}).list : null;
   const listId = routed || cfg.listId || 'qc-lead';
   const list = olFindList(listId) || OUTLOOK.lists[0];
@@ -99,8 +112,7 @@ function emailReportViaOutlook(cfg={}){
 }
 
 function olToday(){
-  // deterministic demo date (no Date.now allowed / needed)
-  return '07 Jul 2026';
+  return fmtDate();
 }
 function olDefaultBody(report){
   return `Dear team,\n\nPlease find attached the ${report}, auto-generated from Descon Assure LIQS.\n`+
@@ -113,7 +125,7 @@ function openOutlookComposer(){
   openModal({ title:'', wide:true, body:`<div id="ol-host">${outlookComposeHTML()}</div>`,
     actions:[
       {label:'Cancel',        cls:'btn-out',  fn:'closeModal()'},
-      {label:'Save to Drafts',cls:'btn-out',  icon:'save', fn:`closeModal();toast('Saved to Outlook Drafts (demo)','info')`},
+      {label:'Save to Drafts',cls:'btn-out',  icon:'save', fn:'outlookDraft()'},
       {label:'Send',          cls:'btn-blue', icon:'send', fn:'outlookSend()'},
     ]});
   // dress the modal header as an Outlook window
@@ -212,10 +224,9 @@ function outlookSend(){
   setTimeout(()=>{
     olSentModal(report, file, n, names, OL.recipients.length+OL.cc.length);
     // drop a notification so it feels wired into the app
-    if(typeof DATA!=='undefined' && DATA.notifs){
-      DATA.notifs.unshift({icon:'mail-check',color:'#0a8f6d',
-        title:'Report emailed via Outlook', body:`${report} sent to ${n} recipient(s)`, time:'just now'});
-    }
+    OUTLOOK.sent=OUTLOOK.sent||[]; OUTLOOK.sent.unshift({report,file,to:n,at:fmtStamp()});
+    audit('Emailed report via Outlook','Reports',`${report} → ${n} recipient(s)`);
+    notify('Report emailed via Outlook',`${report} sent to ${n} recipient(s)`,{icon:'mail-check',color:'#0a8f6d'});
   }, 1100);
 }
 
@@ -251,8 +262,8 @@ function manageOutlook(){
   openModal({ title:'Outlook Integration', wide:true,
     body:`<div id="olm-host">${olmBody()}</div>`,
     actions:[
-      {label:'Disconnect', cls:'btn-out', icon:'unplug', fn:`closeModal();toast('Outlook disconnected (demo)','info')`},
-      {label:'Done',       cls:'btn-green', icon:'check', fn:`closeModal();toast('Outlook settings saved','ok')`},
+      {label:'Disconnect', cls:'btn-out', icon:'unplug', fn:`closeModal();disconnectApp('outlook')`},
+      {label:'Done',       cls:'btn-green', icon:'check', fn:`closeModal();persistSoon();audit('Updated Outlook settings','Integrations');toast('Outlook settings saved','ok')`},
     ]});
   if(window.lucide) lucide.createIcons();
 }

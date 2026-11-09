@@ -120,34 +120,79 @@ function fpOpen(key){
   FILES.selected=key; renderFiles();
   const node=findByPath(key); if(!node) return;
   const [ic,col]=fileIcon(node.ext);
-  const preview = node.preview
-    ? `<div class="fv-code">${node.preview.replace(/</g,'&lt;')}</div>`
-    : `<div class="fv-blank"><div style="text-align:center"><i data-lucide="${ic}" style="width:44px;color:${col}"></i><div style="margin-top:8px;font-size:12px">Binary ${node.ext.toUpperCase()} — preview not available in demo</div></div></div>`;
-  openModal({title:node.name, wide:true, body:`
+  const folder=key.split('/').filter(Boolean).slice(0,-1).join(' / ')||'root';
+  const blob=FP_BLOBS[key];
+  let preview;
+  if(blob&&/^image\//.test(blob.type)) preview=`<img src="${blob.url}" style="max-width:100%;border-radius:8px">`;
+  else if(blob&&blob.type==='application/pdf') preview=`<iframe src="${blob.url}" style="width:100%;height:480px;border:1px solid var(--line);border-radius:8px"></iframe>`;
+  else if(node.preview||blob&&blob.text!=null) preview=`<div class="fv-code">${esc(node.preview||blob.text)}</div>`;
+  else preview=`<div class="fv-blank"><div style="text-align:center"><i data-lucide="${ic}" style="width:44px;color:${col}"></i>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--ink);font-weight:600">${esc(node.name)}</div>
+      <div style="margin-top:4px;font-size:11.5px">${node.ext==='raw'||node.ext==='dat'?'Instrument raw data file · open in the instrument software':'Stored in the SharePoint document library'} · ${node.size||''}</div></div></div>`;
+  openModal({title:esc(node.name), wide:true, body:`
     <div class="fv-meta">
-      <b>Type</b><span>${node.ext.toUpperCase()} document</span>
+      <b>Type</b><span>${node.ext.toUpperCase()} file</span>
       <b>Size</b><span>${node.size||'—'}</span>
       <b>Modified</b><span>${node.modified||'—'}</span>
-      <b>Location</b><span>${key.split('/').filter(Boolean).slice(0,-1).join(' / ')||'root'}</span>
+      <b>Location</b><span>${folder}</span>
     </div>${preview}`,
-    actions:[{label:'Close',cls:'btn-out',fn:'closeModal()'},{label:'Download',cls:'btn-green',icon:'download',fn:`closeModal();toast('Downloading ${node.name.replace(/'/g,"")}…','info')`}]});
+    actions:[{label:'Close',cls:'btn-out',fn:'closeModal()'},{label:'Download',cls:'btn-green',icon:'download',fn:`fpDownload('${jsq(key)}')`}]});
+  audit('Opened file','File Explorer',node.name);
+}
+const FP_BLOBS={};
+async function fpDownload(key){
+  const node=findByPath(key); if(!node) return;
+  const blob=FP_BLOBS[key];
+  const folder=key.split('/').filter(Boolean).slice(0,-1).join(' / ');
+  if(blob){ const a=document.createElement('a'); a.href=blob.url; a.download=node.name; document.body.appendChild(a); a.click(); a.remove(); }
+  else if(node.ext==='csv'||node.ext==='xls'||node.ext==='xlsx'){
+    const csv=node.preview||`file,folder,modified\r\n"${node.name}","${folder}","${node.modified||''}"\r\n`;
+    downloadFile(node.name.replace(/\.(xlsx?|csv)$/i,'')+'.csv',csv,'text/csv');
+  } else if(node.ext==='pdf'){
+    try{
+      await loadScript(LIBS.jspdf); const {jsPDF}=window.jspdf; const pdf=new jsPDF({unit:'pt',format:'a4'});
+      pdf.setFontSize(9); pdf.setTextColor(0,96,176); pdf.text('DESCON OXYCHEM LIMITED · QUALITY CONTROL',40,48);
+      pdf.setFontSize(16); pdf.setTextColor(15,27,45); pdf.text(node.name.replace(/\.pdf$/i,''),40,78);
+      pdf.setFontSize(9); pdf.setTextColor(105,117,134); pdf.text(`${folder} · ${node.size||''} · modified ${node.modified||''}`,40,96);
+      pdf.setFont('courier','normal'); pdf.setFontSize(9.5); pdf.setTextColor(30,41,59);
+      const body=node.preview||`Controlled copy from the Assure LIQS document repository.\n\nFolder: ${folder}\nFile: ${node.name}\nDownloaded by: ${myName()} on ${fmtStamp()}`;
+      pdf.text(pdf.splitTextToSize(body,515),40,128);
+      pdf.save(node.name.toLowerCase().endsWith('.pdf')?node.name:node.name+'.pdf');
+    }catch(e){ toast('PDF download needs an internet connection','err'); return; }
+  } else {
+    downloadFile(node.name.replace(/\.[^.]+$/,'')+'.txt', node.preview||`${node.name}\n${folder}\nModified ${node.modified||''}\n\nDownloaded from Assure LIQS by ${myName()} on ${fmtStamp()}`);
+  }
+  audit('Downloaded file','File Explorer',node.name); toast('Downloaded '+node.name,'ok');
 }
 function fpUpload(){
-  simpleAdd('Upload File',[
-    {key:'name',label:'File name',ph:'e.g. CoA-HP2460.pdf'},
-    {key:'folder',label:'Folder',opts:FILES.tree.map(f=>f.name)},
-  ], v=>{
-    const folder=FILES.tree.find(f=>f.name===v.folder)||FILES.tree[0];
-    const ext=(v.name||'file.pdf').split('.').pop().toLowerCase();
-    folder.children.unshift({name:v.name||'new-file.pdf',kind:'file',ext,size:(Math.random()*200+20).toFixed(0)+' KB',modified:'01 Jul 2026'});
-    FILES.expanded.add(folder.name);
-    renderFiles(); toast('File uploaded to '+folder.name,'ok');
+  openModal({title:'Upload to repository', body:`
+    <label class="drop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');fpPick(event.dataTransfer.files)">
+      <input type="file" multiple style="display:none" onchange="fpPick(this.files)">
+      <i data-lucide="upload-cloud"></i><b id="fp-fname">Drop files here or click to browse</b><span>Any file type</span>
+    </label>
+    <div class="form-row" style="margin-top:12px"><label>Folder</label><select id="fp-folder">${FILES.tree.map(f=>`<option>${esc(f.name)}</option>`).join('')}</select></div>`,
+    actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Upload',cls:'btn-green',icon:'upload',fn:'fpUploadGo()'}]});
+  window.__fpFiles=[];
+}
+function fpPick(files){ window.__fpFiles=[...(files||[])]; const n=document.getElementById('fp-fname'); if(n) n.textContent=window.__fpFiles.length?window.__fpFiles.map(f=>f.name).join(', '):'Drop files here or click to browse'; }
+function fpUploadGo(){
+  const files=window.__fpFiles||[]; if(!files.length){ toast('Choose at least one file','err'); return; }
+  const folder=FILES.tree.find(f=>f.name===document.getElementById('fp-folder').value)||FILES.tree[0];
+  files.forEach(f=>{
+    const ext=(f.name.split('.').pop()||'').toLowerCase();
+    folder.children.unshift({name:f.name,kind:'file',ext,size:f.size>1048576?(f.size/1048576).toFixed(1)+' MB':Math.max(1,Math.round(f.size/1024))+' KB',modified:fmtDate()});
+    const key='/'+folder.name+'/'+f.name; const entry={url:URL.createObjectURL(f),type:f.type}; FP_BLOBS[key]=entry;
+    if(/^text\/|csv|json/.test(f.type)||/\.(txt|csv|md|json)$/i.test(f.name)) f.text().then(t=>entry.text=t.slice(0,8000));
   });
+  FILES.expanded.add(folder.name);
+  audit('Uploaded files','File Explorer',`${files.length} → ${folder.name}`);
+  closeModal(); renderFiles(); persistSoon(); toast(`${files.length} file${files.length>1?'s':''} uploaded to ${folder.name}`,'ok');
 }
 function fpNewFolder(){
   simpleAdd('New Folder',[{key:'name',label:'Folder name'}], v=>{
+    if(FILES.tree.some(f=>f.name===v.name)){ toast('A folder with that name exists','warn'); return; }
     FILES.tree.push({name:v.name||'New Folder',kind:'folder',children:[]});
-    renderFiles(); toast('Folder created','ok');
+    audit('Created folder','File Explorer',v.name); renderFiles(); persistSoon(); toast('Folder created','ok');
   });
 }
 function toggleFiles(){

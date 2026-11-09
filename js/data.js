@@ -1,4 +1,4 @@
-/* ============ AILAB Clone — Mock Data ============ */
+/* ============ Descon Assure LIQS: seed data ============ */
 const DATA = {};
 
 /* ---- Sidebar nav (grouped, standard-LIMS information architecture) ---- */
@@ -253,8 +253,8 @@ DATA.iso = {
   ncStatus:[{n:'Open',v:2,bg:'#fdeaea',c:'#d64545'},{n:'In Progress',v:3,bg:'#fef4e2',c:'#c98110'},{n:'Closed',v:1,bg:'#e6f7f1',c:'#0a9d78'}],
   capaStatus:[{n:'Pending',v:1,bg:'#fef4e2',c:'#c98110'},{n:'Approved',v:2,bg:'#e6f7f1',c:'#0a9d78'},{n:'Revision Req.',v:0,bg:'#fdeaea',c:'#d64545'}],
   table:[
-    ['ISO-INT-2025-001','Assessment','Quality Control','AILAB Quality Control','TAJAMMAL RASHID','Jan 15, 2025','Completed','4 NCs','87%'],
-    ['ISO-INT-2025-002','Surveillance','Analytical Laboratory','AILAB Analytical Lab','MUHAMMAD ASIF HANIF','Feb 10, 2025','Ongoing','2 NCs','91%'],
+    ['ISO-INT-2025-001','Assessment','Quality Control','Oxychem QC Lab','TAJAMMAL RASHID','Jan 15, 2025','Completed','4 NCs','87%'],
+    ['ISO-INT-2025-002','Surveillance','Analytical Laboratory','Oxychem Analytical Lab','MUHAMMAD ASIF HANIF','Feb 10, 2025','Ongoing','2 NCs','91%'],
   ]
 };
 

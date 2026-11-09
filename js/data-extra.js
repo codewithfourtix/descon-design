@@ -77,7 +77,7 @@ DATA.users=[];
 const roles=['Lab Analyst','Senior Analyst','QC Manager','Lab Supervisor','Auditor','Admin'];
 const depts=['Quality Control','Analytical Laboratory','Sampling','QA','Instrumentation'];
 people.forEach((p,i)=>{
-  DATA.users.push({id:`USR-${String(101+i)}`, name:p, email:p.toLowerCase().replace(/[^a-z]+/g,'.').slice(0,18)+'@ailab.ca',
+  DATA.users.push({id:`USR-${String(101+i)}`, name:p, email:p.toLowerCase().replace(/[^a-z]+/g,'.').slice(0,18)+'@descon.com',
     role:pk(roles), dept:pk(depts), status: R()<.85?'Active':'Inactive', last:`${rnd(1,18)} May 2026`});
 });
 
@@ -128,8 +128,8 @@ DATA.docs.kpis[2].v=(DATA.docs.cards.length*0.15).toFixed(2)+' MB';
 
 /* ---------- More audit rows ---------- */
 DATA.iso.table.push(
-  ['ISO-INT-2025-003','Assessment','Sampling','AILAB Sampling Unit','IMRAN YOUSAF','Mar 05, 2025','Completed','1 NC','93%'],
-  ['ISO-INT-2025-004','Surveillance','Instrumentation','AILAB Instrumentation','FARHAN AKRAM','Apr 18, 2025','Planned','0 NCs','—'],
+  ['ISO-INT-2025-003','Assessment','Sampling','Oxychem Sampling Unit','IMRAN YOUSAF','Mar 05, 2025','Completed','1 NC','93%'],
+  ['ISO-INT-2025-004','Surveillance','Instrumentation','Oxychem Instrumentation','FARHAN AKRAM','Apr 18, 2025','Planned','0 NCs','—'],
 );
 
 /* ---------- Per-product scaling (dashboards differ per plant) ---------- */
