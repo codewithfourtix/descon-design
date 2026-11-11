@@ -152,10 +152,11 @@ function render(){
   const r = state.route;
 
   if(DATA.nav.find(n=>n.id===r&&n.product)){
+    if(state.tab==='pas'&&r!=='h2o2') state.tab='dashboard';
     let inner='';
     if(state.tab==='dashboard') inner = screenDashboard();
     else if(state.tab==='labsheet') inner = screenLabsheet();
-    else if(state.tab==='pas') inner = state.route==='h2o2'?screenPlantSheet():screenDashboard();
+    else if(state.tab==='pas') inner = screenPlantSheet();
     else if(state.tab==='wpp') inner = screenRelease();
     else if(state.tab==='quality') inner = screenQuality();
     else if(state.tab==='coa') inner = screenCoa();

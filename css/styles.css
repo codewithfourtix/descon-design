@@ -1176,3 +1176,4 @@ body.dark .pas-sign.done{background:#13261f;border-color:#1f4a3a}
 .pas-trends{display:grid;gap:14px}.pas-tt{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:4px}.pas-tt small{color:var(--muted);font-weight:400}
 @media (max-width:640px){.pas-signs{grid-template-columns:1fr}.pas-blocks{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.pas-flash{animation:none}}
+body.dark .pas-warn{background:#2b2412;color:#f5c46b}

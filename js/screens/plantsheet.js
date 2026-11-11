@@ -212,6 +212,9 @@ function psSign(k){
   if(PAS_TPL.shifts.every(x=>rec.signoff[x.k])){
     confirmModal('Close the day\'s sheet',`All three shifts have signed. Close the sheet for <b>${psLabel(rec.date)}</b>? Its values are saved as the record for that day.`,()=>{
       rec.grids=psLiveGrids(); rec.closed=true; rec.closedAt=fmtStamp(); PS.edit=false;
+      /* the paper workflow: once the day is closed, Result Entry starts fresh */
+      const lr=DATA.labResults.h2o2=DATA.labResults.h2o2||{};
+      PAS_TPL.grids.forEach(g=>{ const ci=psCardIndex(g.id); if(ci>=0) lr[ci]={values:{},status:'Pending',updated:null,by:null}; });
       audit('Closed plant sheet','Plant Sheet',psLabel(rec.date)); persistSoon(); render(); toast('Sheet closed and saved','ok');
     },'Close sheet');
   }

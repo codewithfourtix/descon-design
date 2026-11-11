@@ -233,7 +233,7 @@ function updateBadge(){
 
   /* review queue: tag the seeded urea items and add hydrogen-peroxide ones */
   DATA.inReview.forEach(r=>{ r.route=r.route||'urea'; });
-  (DATA.labByStream.h2o2||[]).forEach((c,i)=>{
+  (DATA.labByStream.h2o2||[]).slice(0,6).forEach((c,i)=>{
     DATA.inReview.push({id:'HP-'+(2610+i*3), area:c.t, plant:'Hydrogen Peroxide', status:pk(['In Review','Pending','Analyzing']),
       pending:rnd(2,6), logged:`${rnd(12,18)} May ${pad2(rnd(6,20))}:${pad2(rnd(0,59))}`, analyst:pk(people), route:'h2o2', ci:i});
   });
