@@ -8,16 +8,16 @@ function batchScore(b){
   return {done:done.length,total:b.tests.length,fails:fails.length};
 }
 function batchBadge(s){
-  const m={'Released':'b-green','Awaiting QC':'b-teal-o','Under Test':'b-blue','On Hold':'b-amber','Rejected':'b-red'};
-  const ic={'Released':'circle-check','Awaiting QC':'clock','Under Test':'flask-conical','On Hold':'pause-circle','Rejected':'x-circle'};
+  const m={'Released':'b-green','Dispatched':'b-blue','Awaiting QC':'b-teal-o','Under Test':'b-blue','On Hold':'b-amber','Rejected':'b-red'};
+  const ic={'Released':'circle-check','Dispatched':'truck','Awaiting QC':'clock','Under Test':'flask-conical','On Hold':'pause-circle','Rejected':'x-circle'};
   return `<span class="badge ${m[s]||'b-blue'}"><i data-lucide="${ic[s]||'circle'}" style="width:11px"></i>${s}</span>`;
 }
 
 function screenRelease(){
   const list=routeBatches();
   const n=s=>list.filter(b=>b.status===s).length;
-  const decided=n('Released')+n('Rejected')+n('On Hold');
-  const rft=decided?((n('Released')/decided)*100).toFixed(1)+'%':'—';
+  const decided=n('Released')+n('Dispatched')+n('Rejected')+n('On Hold');
+  const rft=decided?(((n('Released')+n('Dispatched'))/decided)*100).toFixed(1)+'%':'—';
   const tbl=makeTable('batches',{
     title:'Finished Goods Batches', pageSize:10, search:['id','product','tank','status','by'],
     toolbar:`<button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="newBatch()"><i data-lucide="package-plus"></i>Register Batch</button><button class="btn btn-green" onclick="exportGeneric('batches','finished-goods.csv')"><i data-lucide="download"></i>Export</button>`,
@@ -39,7 +39,7 @@ function screenRelease(){
     </div>
     ${kpiRow([
       {l:'Awaiting QC',v:String(n('Awaiting QC')+n('Under Test')),i:'clock',s:'Need results or a decision'},
-      {l:'Released',v:String(n('Released')),i:'circle-check',s:'Cleared for dispatch'},
+      {l:'Released',v:String(n('Released')),i:'circle-check',s:`Cleared · ${n('Dispatched')} dispatched`},
       {l:'On Hold',v:String(n('On Hold')),i:'pause-circle',s:'Waiting on retest'},
       {l:'Rejected',v:String(n('Rejected')),i:'x-circle',s:'Out of specification'},
       {l:'Right First Time',v:rft,i:'target',s:'Released ÷ decided'},
@@ -50,7 +50,11 @@ function screenRelease(){
 
 function openBatch(id){
   const b=batchById(id); if(!b) return;
-  const locked=b.status==='Released'||b.status==='Rejected';
+  const locked=b.status==='Released'||b.status==='Rejected'||b.status==='Dispatched';
+  const coa=(DATA.coas||[]).find(c=>c.batch===b.id&&c.status==='Issued');
+  const stepIdx=b.status==='Dispatched'?4:b.status==='Released'?(coa?3:2):b.status==='Under Test'?1:0;
+  const flow=['Registered','Tested','Released','CoA issued','Dispatched'];
+  const tl=b.status==='Rejected'||b.status==='On Hold'?'':`<div class="tl" style="margin:12px 0 0">${flow.map((s,k)=>`<div class="tl-step ${k<stepIdx?'done':k===stepIdx?'cur':''}"><span></span>${s}</div>`).join('')}</div>${b.status==='Dispatched'?'<div class="note-line"><i data-lucide="flag"></i>Flow complete: tested, released, certified and dispatched.</div>':''}`;
   const rows=b.tests.map((t,i)=>{
     const st=checkSpec(t.spec,t.result);
     return `<tr><td style="font-weight:600;color:var(--ink)">${t.param}</td><td style="color:var(--muted)">${t.unit||'—'}</td><td>${t.spec}</td>
@@ -66,7 +70,10 @@ function openBatch(id){
     acts.push({label:'Reject',cls:'btn-red',icon:'x-circle',fn:`batchDecide('${b.id}','Rejected')`});
     acts.push({label:'Release batch',cls:'btn-green',icon:'circle-check',fn:`batchRelease('${b.id}')`});
   } else if(b.status==='Released'){
-    acts.push({label:'Generate CoA',cls:'btn-green',icon:'file-check-2',fn:`closeModal();newCoa('${b.id}')`});
+    if(coa){ acts.push({label:'View CoA',cls:'btn-out',icon:'file-check-2',fn:`closeModal();viewCoa('${coa.id}')`}); acts.push({label:'Mark dispatched',cls:'btn-green',icon:'truck',fn:`batchDispatch('${b.id}')`}); }
+    else acts.push({label:'Generate CoA',cls:'btn-green',icon:'file-check-2',fn:`closeModal();newCoa('${b.id}')`});
+  } else if(b.status==='Dispatched'&&coa){
+    acts.push({label:'View CoA',cls:'btn-out',icon:'file-check-2',fn:`closeModal();viewCoa('${coa.id}')`});
   }
   openModal({title:`Batch ${b.id} · ${b.product}`, wide:true, body:`
     <div class="bt-head">
@@ -76,6 +83,8 @@ function openBatch(id){
       <div><span>Manufactured</span><b>${b.mfg}</b></div>
       <div><span>Sampling point</span><b>${b.point}</b></div>
     </div>
+    ${tl}
+    ${b.dispatch?`<div class="note-line"><i data-lucide="truck"></i>Dispatched ${esc(b.dispatch.at)} · ${esc(b.dispatch.ref)} · to ${esc(b.dispatch.customer)}</div>`:''}
     ${b.reason?`<div class="note-line"><i data-lucide="info"></i>${esc(b.reason)}${b.decidedBy?` · ${esc(b.decidedBy)}`:''}</div>`:''}
     <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>PARAMETER</th><th>UNIT</th><th>SPECIFICATION</th><th>RESULT</th><th>STATUS</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="bt-sum" id="bt-sum">${s.done}/${s.total} results entered${s.fails?` · <b style="color:var(--descon-red)">${s.fails} out of specification</b>`:''}</div>`,
@@ -136,6 +145,22 @@ function batchDecideGo(id,status){
   audit(status==='Rejected'?'Rejected batch':'Put batch on hold','Finished Goods',`${b.id} · ${b.reason}`);
   notify(`Batch ${b.id} ${status==='Rejected'?'rejected':'on hold'}`,b.reason,{icon:status==='Rejected'?'x-circle':'pause-circle',color:status==='Rejected'?'#e03131':'#e0930b',route:b.route,tab:'wpp'});
   closeModal(); render(); toast(`${b.id} ${status==='Rejected'?'rejected':'put on hold'}`,status==='Rejected'?'warn':'info');
+}
+function batchDispatch(id){
+  const b=batchById(id); if(!b) return;
+  const coa=(DATA.coas||[]).find(c=>c.batch===b.id&&c.status==='Issued');
+  openModal({title:'Dispatch batch '+b.id, body:`
+    <div class="kv"><span>Product</span><span>${b.product}</span></div>
+    <div class="kv"><span>CoA</span><span>${coa?coa.id+' · '+esc(coa.customer):'—'}</span></div>
+    <div class="form-row" style="margin-top:12px"><label>Gate pass / delivery no.</label><input id="dp-ref" placeholder="e.g. GP-26-1182"></div>`,
+    actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Confirm dispatch',cls:'btn-green',icon:'truck',fn:`batchDispatchGo('${id}')`}]});
+}
+function batchDispatchGo(id){
+  const b=batchById(id); const coa=(DATA.coas||[]).find(c=>c.batch===b.id&&c.status==='Issued');
+  b.status='Dispatched'; b.dispatch={at:fmtStamp(),ref:document.getElementById('dp-ref').value.trim()||'Gate pass pending',customer:coa?coa.customer:'—',by:myName()};
+  audit('Dispatched batch','Finished Goods',`${b.id} · ${b.dispatch.ref}`);
+  notify(`Batch ${b.id} dispatched`,`${b.product} · to ${b.dispatch.customer}`,{icon:'truck',color:'#0060b0',route:b.route,tab:'wpp'});
+  closeModal(); render(); toast(`${b.id} dispatched. Flow complete.`,'ok');
 }
 function newBatch(){
   const prods=[...new Map(routeBatches().map(b=>[b.product,b])).values()];
@@ -199,16 +224,21 @@ function newCoa(batchId){
   if(!can('Lab Supervisor','Issuing a certificate')) return;
   openModal({title:'Generate Certificate of Analysis', body:`
     <div class="form-row"><label>Released batch</label><select id="nc-batch">${rel.map(b=>`<option value="${b.id}" ${b.id===batchId?'selected':''}>${b.id} · ${b.product} · ${b.qty} ${b.unit}</option>`).join('')}</select></div>
-    <div class="form-row"><label>Customer</label><input id="nc-cust" list="nc-cust-l" placeholder="Customer name"><datalist id="nc-cust-l">${CUSTOMERS.map(c=>`<option>${c}</option>`).join('')}</datalist></div>
-    <div class="form-row"><label>Customer PO / reference</label><input id="nc-ref" placeholder="Optional"></div>`,
+    <div class="form-row"><label>Customer (from the customer list)</label><select id="nc-cust" onchange="ncFmt()">${(DATA.customers||[]).map(c=>`<option value="${c.id}">${esc(c.name)}${c.sap?' · SAP '+c.sap:''}</option>`).join('')}</select></div>
+    <div class="note-line" id="nc-fmt" style="margin:-4px 0 10px"></div>
+    <div class="form-row"><label>Customer PO / reference</label><input id="nc-ref" placeholder="e.g. PO-77812"></div>
+    <div style="font-size:11.5px;color:var(--muted)">Customer missing? <a style="color:var(--brand);cursor:pointer" onclick="closeModal();go('customers')">Add or import customers</a></div>`,
     actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Generate',cls:'btn-green',icon:'file-check-2',fn:'newCoaGo()'}]});
+  ncFmt();
 }
+function ncFmt(){ const c=(DATA.customers||[]).find(x=>x.id===(document.getElementById('nc-cust')||{}).value); const el=document.getElementById('nc-fmt'); if(el&&c){ el.innerHTML=`<i data-lucide="file-text"></i>${esc(c.coa)}${c.fields?' · adds: '+esc(c.fields):''}`; if(window.lucide) lucide.createIcons(); } }
 function newCoaGo(){
   const b=batchById(document.getElementById('nc-batch').value); if(!b) return;
-  const cust=document.getElementById('nc-cust').value.trim()||'Internal transfer';
+  const c=(DATA.customers||[]).find(x=>x.id===document.getElementById('nc-cust').value)||{name:'Internal transfer',id:'',sap:'',coa:'Descon standard',fields:''};
+  const cust=c.name;
   const ref=document.getElementById('nc-ref').value.trim();
   const id=seq('COA-'+new Date().getFullYear()+'-',DATA.coas,'id',400).replace(/-(\d+)$/,(m,n)=>'-'+String(n).padStart(4,'0'));
-  DATA.coas.unshift({id,batch:b.id,route:b.route,product:b.product,customer:cust,ref,issued:fmtDate(),by:signer(),status:'Issued'});
+  DATA.coas.unshift({id,batch:b.id,route:b.route,product:b.product,customer:cust,customerId:c.id,sap:c.sap,format:c.coa,fields:c.fields,ref,issued:fmtDate(),by:signer(),status:'Issued'});
   audit('Issued CoA','Certificates',`${id} · ${b.id} · ${cust}`);
   notify(`CoA ${id} issued`,`${b.product} · ${b.id} → ${cust}`,{icon:'file-check-2',color:'#0060b0',route:b.route,tab:'coa'});
   closeModal();
@@ -234,7 +264,9 @@ function coaDocHTML(c, b){
       <div><span>Quantity</span><b>${b.qty} ${b.unit}</b></div><div><span>Tank / silo</span><b>${b.tank}</b></div>
       <div><span>Manufacturing date</span><b>${b.mfg}</b></div><div><span>Date of issue</span><b>${c.issued}</b></div>
       <div><span>Customer</span><b>${esc(c.customer)}</b></div><div><span>Reference</span><b>${esc(c.ref||'—')}</b></div>
+      ${c.sap?`<div><span>Customer no. (SAP)</span><b>${esc(c.sap)}</b></div><div><span>Format</span><b>${esc(c.format||'Descon standard')}</b></div>`:''}
     </div>
+    ${c.fields?`<div class="coa-extra"><b>Customer-required fields:</b> ${esc(c.fields)}</div>`:''}
     <table class="coa-tbl"><thead><tr><th>Parameter</th><th>Unit</th><th>Specification</th><th>Result</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="coa-concl"><b>Conclusion:</b> ${allPass?'The batch conforms to the specification and is released for dispatch.':'The batch does not conform to the specification.'}</div>
     <div class="coa-sign">
@@ -290,4 +322,91 @@ function revokeCoa(id){
   confirmModal('Revoke certificate',`Revoke <b>${c.id}</b>? The customer copy becomes invalid and the reason is kept in the audit trail.`,()=>{
     c.status='Revoked'; audit('Revoked CoA','Certificates',c.id); render(); toast(c.id+' revoked','warn');
   },'Revoke','danger');
+}
+
+/* ---------------- Customers (SAP list + CoA format per customer) ---------------- */
+function screenCustomers(){
+  const list=DATA.customers||[];
+  const tbl=makeTable('customers',{
+    title:'Customers', pageSize:12, search:['id','name','sap','product','coa','contact'],
+    toolbar:`<button class="btn btn-out" onclick="custImport()"><i data-lucide="upload"></i>Import from SAP (CSV)</button><button class="btn btn-green" onclick="exportGeneric('customers','customers.csv')"><i data-lucide="download"></i>Export</button><button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="custAdd()"><i data-lucide="plus"></i>Add Customer</button>`,
+    onOpen:r=>custOpen(r.id),
+    columns:[
+      {key:'name',label:'CUSTOMER',render:v=>`<b style="color:var(--ink)">${esc(v)}</b>`},
+      {key:'source',label:'SOURCE',render:v=>`<span class="badge ${v==='SAP'?'b-blue':'b-teal-o'}">${v}</span>`},
+      {key:'sap',label:'SAP NO.',render:v=>v||'—'},
+      {key:'product',label:'BUYS'},
+      {key:'coa',label:'COA FORMAT',render:v=>`<span class="badge ${v==='Customer format'?'b-amber':'b-green'}">${v}</span>`},
+      {key:'fields',label:'EXTRA FIELDS',render:v=>`<span style="color:var(--muted)">${esc(v||'—')}</span>`},
+    ], data:list
+  });
+  return moduleShell('Customers',kpiRow([
+    {l:'Customers',v:String(list.length),i:'building-2',s:'Used when issuing a CoA'},
+    {l:'From SAP',v:String(list.filter(c=>c.source==='SAP').length),i:'database',s:'Imported from an SAP export'},
+    {l:'Own CoA Format',v:String(list.filter(c=>c.coa==='Customer format').length),i:'file-text',s:'Need their own fields'},
+    {l:'CoAs Issued',v:String((DATA.coas||[]).filter(c=>c.status==='Issued').length),i:'file-check-2',s:'Across all customers'},
+  ],4),tbl,'Customer list for certificates. Import it from an SAP export file. A live SAP link would be a separate change request.');
+}
+function custOpen(id){
+  const c=(DATA.customers||[]).find(x=>x.id===id); if(!c) return;
+  const coas=(DATA.coas||[]).filter(x=>x.customerId===c.id||x.customer===c.name);
+  openRecord(c.name,[['Customer ID',c.id],['Source',c.source],['SAP customer no.',c.sap||'—'],['Contact',c.contact||'—'],['Buys',c.product],['CoA format',c.coa],['Extra CoA fields',c.fields||'—'],['CoAs issued',String(coas.length)]],
+    [{label:'Edit customer & CoA format',cls:'btn-green',icon:'pencil',fn:`custEdit('${c.id}')`}],
+    coas.length?`<div class="ctx-k" style="margin:12px 0 6px">Certificates</div>${renderActionQueue(coas.slice(0,5).map(x=>({title:`${x.id} · ${x.product}`,meta:`${x.batch} · ${x.issued} · ${x.status}`,fn:`go('${x.route}');setTab('coa');setTimeout(()=>viewCoa('${x.id}'),150)`})))}`:'');
+}
+function custEdit(id){
+  const c=(DATA.customers||[]).find(x=>x.id===id); if(!c) return;
+  openModal({title:'Edit '+esc(c.name), body:`
+    <div class="form-row"><label>Contact email</label><input id="ce-contact" value="${esc(c.contact||'')}"></div>
+    <div class="form-row"><label>Product they buy</label><input id="ce-product" value="${esc(c.product||'')}"></div>
+    <div class="form-row"><label>CoA format</label><select id="ce-coa">${['Descon standard','Customer format'].map(o=>`<option ${o===c.coa?'selected':''}>${o}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Extra fields on their CoA</label><input id="ce-fields" value="${esc(c.fields||'')}" placeholder="e.g. PO no., material code, shelf life"></div>`,
+    actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Save',cls:'btn-green',icon:'check',fn:`custSave('${id}')`}]});
+}
+function custSave(id){
+  const c=(DATA.customers||[]).find(x=>x.id===id); if(!c) return;
+  c.contact=document.getElementById('ce-contact').value.trim(); c.product=document.getElementById('ce-product').value.trim();
+  c.coa=document.getElementById('ce-coa').value; c.fields=document.getElementById('ce-fields').value.trim();
+  audit('Edited customer','Customers',`${c.name} · ${c.coa}`); closeModal(); closeDrawer(); render(); toast(c.name+' updated','ok');
+}
+function custAdd(){
+  simpleAdd('Add Customer',[{key:'name',label:'Customer name'},{key:'sap',label:'SAP customer no. (optional)'},{key:'contact',label:'Contact email'},{key:'product',label:'Product they buy'},
+    {key:'coa',label:'CoA format',opts:['Descon standard','Customer format']},{key:'fields',label:'Extra CoA fields',ph:'e.g. PO no., material code'}],
+  v=>{ if(!v.name){ toast('Enter a customer name','err'); return; }
+    const id=v.sap?'C-'+v.sap:seq('C-2',DATA.customers.filter(c=>/^C-2/.test(c.id)),'id',0).replace(/^C-2(\d+)$/,(m,n)=>'C-2'+String(n).padStart(5,'0'));
+    DATA.customers.unshift({id,name:v.name,source:v.sap?'SAP':'Manual',sap:v.sap,contact:v.contact,product:v.product||'Any',coa:v.coa,fields:v.fields});
+    audit('Added customer','Customers',v.name); toast(v.name+' added','ok'); });
+}
+function custImport(){
+  openModal({title:'Import customers from SAP', wide:true, body:`
+    <label class="drop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');custCsv(event.dataTransfer.files)">
+      <input type="file" accept=".csv,text/csv" style="display:none" onchange="custCsv(this.files)">
+      <i data-lucide="upload-cloud"></i><b id="cc-name">Drop the SAP customer export (CSV) here</b><span>Columns: Customer No, Name, Email, Product</span>
+    </label>
+    <div id="cc-prev" style="margin-top:10px"></div>
+    <div style="margin-top:8px;font-size:11.5px;color:var(--muted)">Existing customers are updated by SAP number; new ones are added. <a style="color:var(--brand);cursor:pointer" onclick="custTemplate()">Download template</a></div>`,
+    actions:[{label:'Cancel',cls:'btn-out',fn:'closeModal()'},{label:'Import',cls:'btn-green',icon:'upload',fn:'custImportGo()'}]});
+  window.__custRows=null;
+}
+function custTemplate(){ downloadFile('sap-customers-template.csv','Customer No,Name,Email,Product\r\n100601,Example Textiles,qa@example.com,Textox 50% Textile\r\n','text/csv'); }
+function custCsv(files){
+  const f=files&&files[0]; if(!f) return;
+  f.text().then(t=>{
+    const rows=parseCSV(t); if(rows.length<2){ toast('The file has no data rows','err'); return; }
+    const head=rows[0].map(h=>h.trim().toLowerCase()); const ix=k=>head.findIndex(h=>h.includes(k));
+    const m={no:Math.max(ix('customer no'),ix('kunnr'),ix('number')),name:Math.max(ix('name'),ix('name1')),mail:Math.max(ix('mail'),ix('email')),prod:ix('product')};
+    if(m.name<0){ toast('Could not find a Name column','err'); return; }
+    window.__custRows=rows.slice(1).map(r=>({sap:m.no>=0?(r[m.no]||'').trim():'',name:(r[m.name]||'').trim(),contact:m.mail>=0?(r[m.mail]||'').trim():'',product:m.prod>=0?(r[m.prod]||'').trim():''})).filter(r=>r.name);
+    document.getElementById('cc-name').textContent=`${f.name} · ${window.__custRows.length} customers ready`;
+    document.getElementById('cc-prev').innerHTML=`<div class="tbl-wrap"><table class="tbl dense"><thead><tr><th>SAP NO.</th><th>NAME</th><th>EMAIL</th><th>PRODUCT</th></tr></thead><tbody>${window.__custRows.slice(0,6).map(r=>`<tr><td>${esc(r.sap)}</td><td>${esc(r.name)}</td><td>${esc(r.contact)}</td><td>${esc(r.product)}</td></tr>`).join('')}</tbody></table></div>`;
+  });
+}
+function custImportGo(){
+  const rows=window.__custRows; if(!rows||!rows.length){ toast('Choose a CSV file first','err'); return; }
+  let added=0, updated=0;
+  rows.forEach(r=>{ const ex=r.sap&&DATA.customers.find(c=>c.sap===r.sap);
+    if(ex){ ex.name=r.name; if(r.contact) ex.contact=r.contact; if(r.product) ex.product=r.product; updated++; }
+    else { DATA.customers.unshift({id:r.sap?'C-'+r.sap:'C-'+Math.floor(Math.random()*900000+100000),name:r.name,source:'SAP',sap:r.sap,contact:r.contact,product:r.product||'Any',coa:'Descon standard',fields:'PO no.'}); added++; } });
+  audit('Imported customers from SAP','Customers',`${added} added, ${updated} updated`);
+  closeModal(); render(); toast(`${added} added, ${updated} updated from SAP`,'ok');
 }

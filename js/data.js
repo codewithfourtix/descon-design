@@ -21,11 +21,13 @@ DATA.nav = [
   {id:'registry',  label:'Sample Register',          icon:'database'},
 
   {header:'Operations', collapsible:true},
+  {id:'clock',    label:'Clock In / Out',   icon:'clock'},
   {id:'shift',    label:'Shift Scheduling', icon:'calendar-days'},
   {id:'shiftlog', label:'Shift Handover',   icon:'clipboard-list'},
   {id:'ai',       label:'Assistant',        icon:'sparkles'},
 
   {header:'Administration', collapsible:true},
+  {id:'customers', label:'Customers',   icon:'building-2'},
   {id:'users',   label:'Users & Roles', icon:'users'},
   {id:'logs',    label:'Audit Trail',   icon:'history'},
   {id:'profile', label:'Settings',      icon:'settings'},

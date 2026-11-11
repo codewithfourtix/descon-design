@@ -174,6 +174,8 @@ function render(){
   else if(r==='registry')  c.innerHTML = screenRegistry();
   else if(r==='specs')     c.innerHTML = screenSpecs();
   else if(r==='shift')     c.innerHTML = screenShiftMgmt();
+  else if(r==='clock')     c.innerHTML = screenClock();
+  else if(r==='customers') c.innerHTML = screenCustomers();
   else if(r==='profile')   c.innerHTML = screenProfile();
   else                     c.innerHTML = screenGeneric(DATA.nav.find(n=>n.id===r).label);
 

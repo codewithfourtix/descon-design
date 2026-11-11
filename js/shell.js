@@ -40,14 +40,14 @@ function renderLogin(){
       <div class="form-row"><label for="lg-pass">Password</label><input id="lg-pass" type="password" required value="assure-2026" autocomplete="current-password"></div>
       <div class="form-row"><label for="lg-role">Sign in as</label><select id="lg-role">${ROLES.map(r=>`<option ${r===role?'selected':''}>${r}</option>`).join('')}</select></div>
       <button type="submit" class="btn btn-green login-go" id="lg-go"><span>Sign in</span></button>
-      <div class="login-foot"><i data-lucide="lock" style="width:12px"></i>Secured with Microsoft Entra ID · every action is audit-logged</div>
+      <div class="login-foot"><i data-lucide="lock" style="width:12px"></i>Microsoft Entra ID · Descon network only · every action is audit-logged</div>
     </form>
   </div>`;
   document.body.classList.add('signed-out');
   if(window.lucide) lucide.createIcons();
 }
 function finishLogin(email, role, via){
-  SESSION={name:nameFromEmail(email), email:String(email).toLowerCase(), role, photo:(SESSION&&SESSION.photo)||null, since:Date.now()};
+  SESSION={name:nameFromEmail(email), email:String(email).toLowerCase(), role, photo:(SESSION&&SESSION.photo)||null, since:Date.now(), superAdmin:role==='Admin'};
   saveSession();
   try{ localStorage.setItem('descon-assure-lastlogin',JSON.stringify({email:SESSION.email,role})); }catch(e){}
   if(typeof OUTLOOK!=='undefined') OUTLOOK.account={name:SESSION.name,email:SESSION.email};
@@ -85,6 +85,9 @@ function doLogout(){
 }
 function updateIdentity(){
   const s=me();
+  const bar=document.querySelector('.command-bar');
+  if(bar&&!bar.querySelector('.net-chip')){ const c=document.createElement('span'); c.className='net-chip'; c.title='Connected through the Descon network'; c.innerHTML='<i data-lucide="shield-check"></i>Descon network'; const srch=bar.querySelector('.search'); bar.insertBefore(c,srch); if(window.lucide) lucide.createIcons(); }
+  if(SESSION&&SESSION.superAdmin===undefined) SESSION.superAdmin=SESSION.role==='Admin';
   document.querySelectorAll('.rail-bottom .avatar').forEach(a=>{
     if(s.photo){ a.innerHTML=`<img src="${s.photo}" alt="">`; a.classList.add('has-photo'); }
     else { a.textContent=initialsOf(s.name); a.classList.remove('has-photo'); }
@@ -142,6 +145,9 @@ function toggleProfile(e){
   railDropdown('dd-profile',`<div class="dd-who">
       <div class="avatar" style="width:36px;height:36px;font-size:13px">${s.photo?`<img src="${s.photo}" alt="">`:initialsOf(s.name)}</div>
       <div style="min-width:0"><div class="dw-n">${esc(s.name)}</div><div class="dw-e">${esc(s.email)}</div><span class="badge b-blue" style="margin-top:4px">${esc(s.role)}</span></div></div>
+    ${s.profileOf?`<div class="dd-note">Using ${esc(s.name)}'s profile on ${esc(s.email)}</div>`:''}
+    <div class="dd-line" onclick="closeDropdowns();openProfileSwitch()"><i data-lucide="users-round"></i>Switch profile${s.superAdmin?'<span class="kbd">Admin</span>':'<span class="kbd">PIN</span>'}</div>
+    ${s.profileOf?`<div class="dd-line" onclick="closeDropdowns();backToMyProfile()"><i data-lucide="undo-2"></i>Back to my profile</div>`:''}
     <div class="dd-line" onclick="closeDropdowns();go('profile')"><i data-lucide="user-cog"></i>Profile &amp; settings</div>
     <div class="dd-line dd-sub-toggle" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('open')"><i data-lucide="repeat-2"></i>Switch role<i data-lucide="chevron-right" class="dd-chev"></i></div>
     <div class="dd-sub">${ROLES.map(r=>`<div class="dd-line ${r===s.role?'on':''}" onclick="switchRole('${r}')">${r===s.role?'<i data-lucide="check"></i>':'<span style="width:15px"></span>'}${r}</div>`).join('')}</div>
@@ -149,6 +155,32 @@ function toggleProfile(e){
     <div class="dd-line" onclick="closeDropdowns();openPalette()"><i data-lucide="command"></i>Command palette<span class="kbd">Ctrl K</span></div>
     <div class="dd-line" onclick="closeDropdowns();go('logs')"><i data-lucide="history"></i>Audit trail</div>
     <div class="dd-line danger" onclick="doLogout()"><i data-lucide="log-out"></i>Sign out</div>`);
+}
+
+/* ---------------- Profile switching (shared lab login + PIN) ---------------- */
+function openProfileSwitch(){
+  const people=(DATA.users||[]).filter(u=>u.status==='Active');
+  openModal({title:'Switch profile', wide:true, body:`
+    <div class="note-line" style="margin:0 0 12px"><i data-lucide="info"></i>${SESSION.superAdmin?'Super admin: switch to any profile without a PIN.':'Everyone on this login has a profile. Tap yours and enter your 4-digit PIN.'}</div>
+    <div class="ps-grid">${people.map(u=>`<button class="ps-tile ${SESSION.profileId===u.id?'on':''}" onclick="switchProfile('${u.id}')">
+      <span class="ks-av">${initialsOf(titleCase(u.name))}</span><b>${titleCase(u.name)}</b><span>${u.role}</span></button>`).join('')}</div>`,
+    actions:[{label:'Close',cls:'btn-out',fn:'closeModal()'}]});
+}
+function switchProfile(id){
+  const u=(DATA.users||[]).find(x=>x.id===id); if(!u) return;
+  const apply=()=>{
+    if(!SESSION.profileOf) SESSION.profileOf={name:SESSION.name,role:SESSION.role};
+    SESSION.name=titleCase(u.name); SESSION.role=u.role; SESSION.profileId=u.id; saveSession();
+    audit('Switched profile','Security',`${titleCase(u.name)} (${u.role})${SESSION.superAdmin?' · super admin':' · PIN'}`);
+    closeModal(); updateIdentity(); render(); toast(`Now using ${titleCase(u.name)}'s profile`,'ok');
+  };
+  if(SESSION.superAdmin){ apply(); return; }
+  closeModal(); withPin(u,'Switch profile',apply);
+}
+function backToMyProfile(){
+  if(!SESSION.profileOf) return;
+  SESSION.name=SESSION.profileOf.name; SESSION.role=SESSION.profileOf.role; delete SESSION.profileOf; delete SESSION.profileId; saveSession();
+  audit('Switched profile','Security','Back to own profile'); updateIdentity(); render(); toast('Back on your own profile','info');
 }
 
 /* ---------------- Record drawer ---------------- */
@@ -173,6 +205,11 @@ function paletteItems(){
    ['Upload document','upload','go(\'docs\');setTimeout(docUpload,150)'],
    ['Record calibration','gauge','go(\'equip\')'],
    ['Log CAPA','clipboard-check','go(\'iso\');setTimeout(()=>logCapa(),150)'],
+   ['Clock in / out','clock','go(\'clock\')'],
+   ['Open tablet clock-in','tablet-smartphone','go(\'clock\');setTimeout(kioskOpen,150)'],
+   ['Switch profile','users-round','openProfileSwitch()'],
+   ['Customers and CoA formats','building-2','go(\'customers\')'],
+   ['Import customers from SAP','upload','go(\'customers\');setTimeout(custImport,150)'],
    ['Ask the assistant','sparkles','openAssistant()'],
    ['Toggle dark mode','moon','toggleTheme()'],
    ['Sign out','log-out','doLogout()']].forEach(([t,ic,fn])=>out.push({k:'Action',t,ic,fn}));

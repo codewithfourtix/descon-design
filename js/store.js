@@ -235,6 +235,28 @@ function updateBadge(){
   /* result-entry state per stream, keyed by worksheet index */
   DATA.labResults={};
   DATA.tasks=[];
+
+  /* customers (sample set as exported from SAP) with their CoA format */
+  DATA.customers=[
+    {id:'C-100045',name:'Nishat Mills',source:'SAP',sap:'100045',contact:'qa@nishat.example',product:'Textox 50% Textile',coa:'Descon standard',fields:'PO no., customer product code'},
+    {id:'C-100118',name:'Engro Polymer',source:'SAP',sap:'100118',contact:'supplier.quality@engro.example',product:'H2O2 50% Technical',coa:'Customer format',fields:'PO no., material code, shelf life'},
+    {id:'C-100230',name:'Packages Ltd',source:'SAP',sap:'100230',contact:'qc@packages.example',product:'H2O2 50% Technical',coa:'Descon standard',fields:'PO no.'},
+    {id:'C-100307',name:'Shan Foods',source:'SAP',sap:'100307',contact:'quality@shan.example',product:'Aseptox 35% Food Grade',coa:'Customer format',fields:'PO no., food-grade statement, heavy metals'},
+    {id:'C-100412',name:'Interloop',source:'SAP',sap:'100412',contact:'chem.qa@interloop.example',product:'Textox 50% Textile',coa:'Descon standard',fields:'PO no., lot no.'},
+    {id:'C-100509',name:'Nestle Pakistan',source:'SAP',sap:'100509',contact:'supplier.qa@nestle.example',product:'Aseptox 35% Food Grade',coa:'Customer format',fields:'PO no., material code, food-grade statement, shelf life'},
+    {id:'C-200001',name:'Internal transfer',source:'Manual',sap:'',contact:'stores@descon.com',product:'Any',coa:'Descon standard',fields:'Transfer note no.'},
+  ];
+
+  /* clock in / out records (today) */
+  const today=fmtDate();
+  DATA.attendance=[
+    {id:'ATT-1',user:'NASEER AHMED',shift:'Morning',in:today+' 05:56',out:'',method:'Lab tablet'},
+    {id:'ATT-2',user:'RIZWAN ALI',shift:'Morning',in:today+' 06:02',out:'',method:'QR · mobile'},
+    {id:'ATT-3',user:'VANIZA',shift:'Morning',in:today+' 06:04',out:'',method:'Lab tablet'},
+    {id:'ATT-4',user:'SHARJEEL TAHIR',shift:'Morning',in:today+' 06:10',out:'',method:'Web'},
+    {id:'ATT-5',user:'IMRAN YOUSAF',shift:'Morning',in:today+' 05:48',out:'',method:'Lab tablet'},
+  ];
+  DATA.pins={};   /* userId -> hashed 4-digit PIN, set by each person on first use */
 })();
 
 /* ---------- persistence ---------- */
@@ -244,6 +266,7 @@ const PERSIST = {
   notifications:()=>DATA.notifications, batches:()=>DATA.batches, coas:()=>DATA.coas, capas:()=>DATA.capas,
   extAudits:()=>DATA.extAudits, roster:()=>DATA.roster, glass:()=>DATA.glass, vendors:()=>DATA.vendors, msds:()=>DATA.msds,
   labResults:()=>DATA.labResults, tasks:()=>DATA.tasks,
+  customers:()=>DATA.customers, attendance:()=>DATA.attendance, pins:()=>DATA.pins,
   docsCards:()=>DATA.docs.cards, chemRows:()=>DATA.chem.rows, specialRows:()=>DATA.special.rows, isoTable:()=>DATA.iso.table,
 };
 const APPLY = {
