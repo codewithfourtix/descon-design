@@ -1105,3 +1105,74 @@ body.dark .live-chip.on{background:#13261f;color:#4fd1a5}body.dark .live-chip.of
 .sc-sync svg{width:15px;height:15px}.sc-sync.ok{color:#0a8f6d}.sc-sync.wait{color:#b7770a}
 .spin{animation:spin .8s linear infinite}
 @media (prefers-reduced-motion:reduce){.st-flash{transition:none}.live-chip.on i,.spin{animation:none}}
+
+/* v2.4 Plant Sheet (TD-3-004) */
+.ls-sec{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2);padding:12px 12px 4px}
+.pas{display:flex;flex-direction:column;gap:14px}
+.pas-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.pas-src{margin-top:8px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pas-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pas-date{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--card);height:34px}
+.pas-date svg{width:14px;color:var(--muted)}
+.pas-date select{border:0;background:transparent;font:inherit;font-size:12.5px;color:var(--ink);height:32px;outline:none}
+.pas-oos .card-head{flex-wrap:wrap;gap:6px}
+.pas-oos-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;padding:12px 14px 14px}
+.pas-oos-i{display:grid;grid-template-columns:1fr auto;gap:1px 10px;text-align:left;border:1px solid #f3d6a2;background:#fffaf0;border-radius:10px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--ink)}
+.pas-oos-i:hover{border-color:#e0930b}.pas-oos-i:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.pas-oos-i b{font-size:12px;grid-column:1}.pas-oos-i span{font-size:11.5px;color:var(--muted);grid-column:1}
+.pas-oos-i em{font-style:normal;font-weight:700;color:#c0392b;grid-column:2;grid-row:1/3;align-self:center;font-size:15px;font-variant-numeric:tabular-nums}
+.pas-oos-i em small{font-weight:500;font-size:10.5px;color:var(--muted)}
+.pas-oos-i i{font-style:normal;font-size:10.5px;color:#b7770a;grid-column:1/3}
+body.dark .pas-oos-i{background:#2b2412;border-color:#5a4520}
+.pas-sec{display:flex;flex-direction:column;gap:10px}
+.pas-sec-h{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:6px}
+.pas-sec-h h2{margin:0;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.pas-sec-h span{font-size:12px;color:var(--muted)}
+.pas-bad{color:#c0392b}
+.pas-blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+.pas-b{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.pas-b.wide{grid-column:1/-1}
+.pas-bh{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);background:var(--panel-head)}
+.pas-bh b{font-size:12.5px;color:var(--ink)}.pas-bh span{font-size:11px;color:var(--muted)}
+.pas-bh .btn{margin-left:auto}
+.pas-tw{overflow-x:auto}
+.pas-t{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.pas-t th{font-size:10.5px;font-weight:600;color:var(--muted);text-align:center;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pas-t th:first-child{text-align:left;padding-left:12px}
+.pas-t td{padding:5px 6px;border-bottom:1px solid var(--line2);text-align:center;white-space:nowrap}
+.pas-t tr:last-child td{border-bottom:0}
+.pas-p{text-align:left!important;padding-left:12px!important;font-weight:600;color:var(--ink)}
+.pas-p small{font-weight:400;color:var(--muted);font-size:10.5px}
+.pas-loc{display:block;font-weight:400}
+.pas-r{color:var(--muted);font-size:11px}
+.pas-line{font-size:10.5px;color:var(--muted);font-weight:600}
+.pas-new td{background:rgba(10,157,120,.035)}
+.pas-c{color:var(--ink);min-width:44px}
+.pas-c.bad{background:#fdecea;color:#c0392b;font-weight:700}
+.pas-c.ok{color:var(--ink)}
+body.dark .pas-c.bad{background:#3a1d1b;color:#ff8a80}
+.pas-avg{font-weight:600;border-left:1px solid var(--line)}
+.pas-nil{color:var(--muted2)}
+.pas-k{font-weight:600;color:var(--ink)}
+.pas-empty{color:var(--muted2);font-size:11.5px;padding:12px!important}
+.pas-in{width:58px;border:1px solid var(--line);border-radius:5px;padding:4px 5px;font:inherit;font-size:12px;text-align:center;background:var(--card);color:var(--ink)}
+.pas-in:focus{outline:2px solid var(--brand);outline-offset:0;border-color:transparent}
+.pas-c.bad .pas-in{border-color:#e9a39b;color:#c0392b;font-weight:700;background:transparent}
+.pas-x{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px;display:inline-flex}.pas-x svg{width:14px}
+.pas-flash{animation:pasflash 1.6s ease}
+@keyframes pasflash{0%,40%{box-shadow:inset 0 0 0 2px #e0930b}100%{box-shadow:inset 0 0 0 2px transparent}}
+.pas-foot{padding:14px;display:flex;flex-direction:column;gap:12px}
+.pas-signs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pas-sign{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.pas-sign.done{border-style:solid;border-color:#bfe6d6;background:#f3fbf7}
+body.dark .pas-sign.done{background:#13261f;border-color:#1f4a3a}
+.pas-sign b{font-size:12.5px;color:var(--ink)}.pas-sign small{font-size:11px;color:var(--muted)}
+.pas-from{font-size:10.5px;color:var(--muted2)}
+.pas-ok{color:#0a8f6d;font-weight:600;font-size:12px}
+.pas-dist{font-size:11.5px;color:var(--muted);line-height:1.6}.pas-dist b{color:var(--ink)}
+.pas-imp{display:grid;gap:8px}
+.pas-imp div{display:grid;grid-template-columns:130px 1fr;gap:10px;font-size:13px}.pas-imp span{color:var(--muted)}
+.pas-warn{margin-top:12px;font-size:12.5px;color:#b7770a;background:#fdf3e1;border-radius:8px;padding:8px 10px}
+.pas-trends{display:grid;gap:14px}.pas-tt{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:4px}.pas-tt small{color:var(--muted);font-weight:400}
+@media (max-width:640px){.pas-signs{grid-template-columns:1fr}.pas-blocks{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.pas-flash{animation:none}}

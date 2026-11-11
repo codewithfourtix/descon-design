@@ -37,6 +37,7 @@ DATA.nav = [
 DATA.subtabs = [
   {id:'dashboard', label:'Dashboard',         icon:'layout-grid'},
   {id:'labsheet',  label:'Result Entry',      icon:'clipboard-pen-line'},
+  {id:'pas',       label:'Plant Sheet',       icon:'sheet', only:'h2o2'},
   {id:'wpp',       label:'Finished Goods',    icon:'package'},
   {id:'quality',   label:'Quality & OOS',     icon:'bar-chart-3'},
   {id:'coa',       label:'Certificate (CoA)', icon:'file-check-2'},

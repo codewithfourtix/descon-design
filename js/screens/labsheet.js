@@ -18,10 +18,12 @@ function screenLabsheet(){
   const ci=Math.min(LAB.sel[state.route]||0, cards.length-1);
   const c=cards[ci]; const st=labState(ci);
   const q=LAB.q.toLowerCase();
-  const sampleList = cards.map((cd,i)=>({cd,i})).filter(({cd})=>!q||cd.t.toLowerCase().includes(q)||cd.rows.some(r=>r[0].toLowerCase().includes(q))).map(({cd,i})=>{
+  let lastSec=null;
+  const sampleList = cards.map((cd,i)=>({cd,i})).filter(({cd})=>!q||cd.t.toLowerCase().includes(q)||(cd.sec||'').toLowerCase().includes(q)||cd.rows.some(r=>r[0].toLowerCase().includes(q))).map(({cd,i})=>{
+    const sec=cd.sec&&cd.sec!==lastSec?`<div class="ls-sec">${cd.sec}</div>`:''; lastSec=cd.sec;
     const s=labState(i); const filled=Object.values(s.values).filter(v=>v!=='').length;
     const total=cd.rows.length*Math.max(1,cd.cols.length);
-    return `<div class="ls-item ${i===ci?'on':''}" onclick="labSelect(${i})">
+    return sec+`<div class="ls-item ${i===ci?'on':''}" onclick="labSelect(${i})">
       <i data-lucide="flask-conical"></i>
       <div style="flex:1;min-width:0">
         <div class="ls-t">${cd.t}</div>
@@ -56,6 +58,7 @@ function screenLabsheet(){
       <div class="card-head" style="background:var(--panel-head)">
         <div class="card-title" style="color:var(--brand)">${c.t} ${labStatusChip(st.status)}</div>
         <div class="chart-tools">
+          ${c.pas?`<div class="icon-sq" style="width:26px;height:26px" onclick="psOpenFrom('${c.pas}')" title="See it on the Plant Sheet"><i data-lucide="sheet" style="width:12px"></i></div>`:''}
           <div class="icon-sq" style="width:26px;height:26px" onclick="labUndo()" title="Clear unsaved values"><i data-lucide="rotate-ccw" style="width:12px"></i></div>
           <div class="icon-sq" style="width:26px;height:26px" onclick="labFill()" title="Pull readings from the instrument"><i data-lucide="wand-2" style="width:12px"></i></div>
         </div>
@@ -90,8 +93,9 @@ function labSummary(c,st){
 function labContext(ci,ri,cx){
   const c=labCards()[ci]; const r=c.rows[ri]; if(!r) return '';
   const st=labState(ci); const v=st.values[ri+'-'+cx]??'';
-  const prev=labPrev(r[0],r[2],ci,ri); const chk=checkSpec(r[2],v); const p=parseSpec(r[2]);
-  const spec=(DATA.specs||[]).find(s=>s.parameter.toLowerCase()===r[0].toLowerCase());
+  const real=c.pas&&typeof psPrevious==='function'?psPrevious(c.pas,ri,cx):null;
+  const prev=real?real.v:labPrev(r[0],r[2],ci,ri); const chk=checkSpec(r[2],v); const p=parseSpec(r[2]);
+  const spec=(DATA.specs||[]).find(s=>s.point===c.t&&s.parameter===r[0])||(c.pas?null:(DATA.specs||[]).find(s=>s.parameter.toLowerCase()===r[0].toLowerCase()));
   return `
     <div><div class="ctx-k">Parameter</div><div class="ctx-v">${r[0]} <span style="color:var(--muted);font-weight:400">${r[1]||''}</span></div></div>
     <div class="ctx-box ${chk==='fail'?'bad':chk==='pass'?'good':''}">
@@ -102,7 +106,7 @@ function labContext(ci,ri,cx){
     <div class="ctx-box"><div class="ctx-k">Specification</div><div class="ctx-v">${r[2]||'No limit set'}</div>
       ${p?`<div style="color:var(--muted);margin-top:3px">${p.lo!=null?'Min '+p.lo:''}${p.lo!=null&&p.hi!=null?' · ':''}${p.hi!=null?'Max '+p.hi:''}</div>`:''}
       ${spec?`<div style="color:var(--muted);margin-top:3px">Method: ${spec.method}</div>`:''}</div>
-    <div class="ctx-box"><div class="ctx-k">Previous reading</div><div class="ctx-big">${prev} <span>${r[1]||''}</span></div><div style="color:var(--muted2);font-size:10.5px">Last cycle · ${c.cols[cx]||'routine'} slot</div>
+    <div class="ctx-box"><div class="ctx-k">Previous reading</div><div class="ctx-big">${prev} <span>${r[1]||''}</span></div><div style="color:var(--muted2);font-size:10.5px">${real?`Plant sheet of ${real.label} · ${c.cols[cx]} slot`:`Last cycle · ${c.cols[cx]||'routine'} slot`}</div>
       <div style="height:70px;margin-top:6px"><canvas id="ctx-spark"></canvas></div></div>
     <button class="btn btn-out" style="justify-content:center" onclick="labTrend('${jsq(r[0])}')"><i data-lucide="line-chart"></i>7-day trend</button>
     <button class="btn btn-out" style="justify-content:center" onclick="openAssistant('What is the test method and limit for ${jsq(r[0])} at ${jsq(c.t)}?')"><i data-lucide="sparkles" style="color:var(--brand)"></i>Ask assistant</button>`;

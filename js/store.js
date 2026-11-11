@@ -50,20 +50,26 @@ function parseSpec(spec){
   if(spec==null) return null;
   let s=String(spec).trim(); if(!s||s==='—'||s==='-') return null;
   if(/^nil$/i.test(s)) return {lo:null,hi:0,txt:'Nil'};
-  s=s.replace(/[–—]/g,'-').replace(/\s+to\s+/gi,'-').replace(/,/g,'');
-  let m=s.match(/(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)/);
+  s=s.replace(/[–—~]/g,'-').replace(/\s+to\s+/gi,'-').replace(/,/g,'');
+  let m=s.match(/(\d+(?:\.\d+)?)\s*±\s*(\d+(?:\.\d+)?)/);
+  if(m){ const a=parseFloat(m[1]), b=parseFloat(m[2]); return {lo:+(a-b).toFixed(4),hi:+(a+b).toFixed(4)}; }
+  m=s.match(/(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)/);
   if(m) return {lo:parseFloat(m[1]),hi:parseFloat(m[2])};
-  m=s.match(/(\d+(?:\.\d+)?)\s*max/i) || s.match(/<\s*=?\s*(\d+(?:\.\d+)?)/);
+  m=s.match(/(\d+(?:\.\d+)?)\s*[%a-zµ/]*\s*max/i) || s.match(/max\.?\s*(\d+(?:\.\d+)?)/i) || s.match(/<\s*=?\s*(\d+(?:\.\d+)?)/);
   if(m) return {lo:null,hi:parseFloat(m[1])};
-  m=s.match(/(\d+(?:\.\d+)?)\s*min/i) || s.match(/>\s*=?\s*(\d+(?:\.\d+)?)/);
+  m=s.match(/(\d+(?:\.\d+)?)\s*[%a-zµ/]*\s*min/i) || s.match(/min\.?\s*(\d+(?:\.\d+)?)/i) || s.match(/>\s*=?\s*(\d+(?:\.\d+)?)/);
   if(m) return {lo:parseFloat(m[1]),hi:null};
   return null;
 }
-/* returns 'pass' | 'fail' | 'none' (no numeric spec or no value) */
+/* returns 'pass' | 'fail' | 'none' (no numeric spec or no value).
+   "ND" (not detected) and "< x" (below detection) pass a maximum limit. */
 function checkSpec(spec, value){
   if(value===''||value==null) return 'none';
-  const v=parseFloat(String(value).replace(/,/g,'')); if(isNaN(v)) return 'none';
-  const p=parseSpec(spec); if(!p) return 'none';
+  const raw=String(value).trim(); const p=parseSpec(spec); if(!p) return 'none';
+  if(/^(nd|nil|n\.d\.)$/i.test(raw)) return p.hi!=null&&p.lo==null?'pass':'none';
+  const lt=raw.match(/^<\s*(\d+(?:\.\d+)?)$/);
+  if(lt){ if(p.hi!=null&&parseFloat(lt[1])<=p.hi&&p.lo==null) return 'pass'; return 'none'; }
+  const v=parseFloat(raw.replace(/,/g,'')); if(isNaN(v)||!/^[<>]?\s*-?\d/.test(raw)) return 'none';
   if(p.lo!=null && v<p.lo) return 'fail';
   if(p.hi!=null && v>p.hi) return 'fail';
   return 'pass';
@@ -165,7 +171,7 @@ function updateBadge(){
       });
       const d=addDays(new Date(2026,9,20),-rnd(0,24));
       DATA.batches.push({id:(route==='h2o2'?'HP-':'UR-')+(bn++), route, product:prod, point:code,
-        qty:route==='h2o2'?rnd(18,60):rnd(250,900), unit:'MT', tank:route==='h2o2'?'TK-'+rnd(101,112):'Silo '+rnd(1,6),
+        qty:route==='h2o2'?rnd(18,60):rnd(250,900), unit:'MT', tank:route==='h2o2'?String(pk([5001,5002,5003,5005,5008,5009])):'Silo '+rnd(1,6),
         mfg:fmtDate(d), status:st, by:pk(people), tests,
         reason: st==='On Hold'?'Awaiting retest on stability':st==='Rejected'?'Out of specification':''});
     }
@@ -267,7 +273,7 @@ const PERSIST = {
   notifications:()=>DATA.notifications, batches:()=>DATA.batches, coas:()=>DATA.coas, capas:()=>DATA.capas,
   extAudits:()=>DATA.extAudits, roster:()=>DATA.roster, glass:()=>DATA.glass, vendors:()=>DATA.vendors, msds:()=>DATA.msds,
   labResults:()=>DATA.labResults, tasks:()=>DATA.tasks,
-  customers:()=>DATA.customers, attendance:()=>DATA.attendance, pins:()=>DATA.pins, devices:()=>DATA.devices,
+  customers:()=>DATA.customers, attendance:()=>DATA.attendance, pins:()=>DATA.pins, devices:()=>DATA.devices, pasSheets:()=>DATA.pasSheets,
   docsCards:()=>DATA.docs.cards, chemRows:()=>DATA.chem.rows, specialRows:()=>DATA.special.rows, isoTable:()=>DATA.iso.table,
 };
 const APPLY = {
@@ -284,6 +290,17 @@ let _late = {}; /* parts owned by scripts that load later (files, outlook, integ
     else if(PERSIST[k]) DATA[k]=v;
   });
   _late = saved.late||{};
+})();
+/* one-time upgrade: Hydrogen Peroxide worksheets 4+ are now the TD-3-004 plant points */
+(function pasUpgrade(){
+  const lr=DATA.labResults=DATA.labResults||{};
+  if(lr._pas!==1){ if(lr.h2o2) Object.keys(lr.h2o2).forEach(k=>{ if(+k>=3) delete lr.h2o2[k]; }); lr._pas=1; }
+  if(typeof PAS_SEED!=='undefined'){ DATA.pasSheets=DATA.pasSheets||{}; PAS_SEED.forEach(s=>{ if(!DATA.pasSheets[s.date]) DATA.pasSheets[s.date]=JSON.parse(JSON.stringify(s)); }); }
+  if(typeof PAS_TPL!=='undefined'&&DATA.specs&&!DATA.specs.some(x=>x.method==='TD-3-004')){
+    PAS_TPL.grids.forEach(g=>g.rows.forEach(r=>{ const p=parseSpec(r[2]); if(!p) return;
+      DATA.specs.push({id:'SPEC-'+(201+DATA.specs.length), stream:(PAS_TPL.sections.find(s=>s.id===g.sec)||{}).t, point:g.t, parameter:r[0], unit:r[1],
+        lo:p.lo!=null?String(p.lo):'—', hi:p.hi!=null?String(p.hi):'—', alo:'—', ahi:'—', method:'TD-3-004', limit:r[2], status:'Approved'}); }));
+  }
 })();
 function persist(){
   try{

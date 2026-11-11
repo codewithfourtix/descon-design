@@ -87,7 +87,7 @@ function setGroup(id, type) {
 
 /* ---------- Module sub-tabs (Dashboard | Lab-01 | ... ) ---------- */
 function subtabsBar(){
-  return `<div class="subtabs">${DATA.subtabs.map(t=>{
+  return `<div class="subtabs">${DATA.subtabs.filter(t=>!t.only||t.only===state.route).map(t=>{
     const active = state.tab===t.id?'active':'';
     return `<div class="subtab ${active}" onclick="setTab('${t.id}')"><i data-lucide="${t.icon}"></i>${t.label}</div>`;
   }).join('')}</div>`;
@@ -155,6 +155,7 @@ function render(){
     let inner='';
     if(state.tab==='dashboard') inner = screenDashboard();
     else if(state.tab==='labsheet') inner = screenLabsheet();
+    else if(state.tab==='pas') inner = state.route==='h2o2'?screenPlantSheet():screenDashboard();
     else if(state.tab==='wpp') inner = screenRelease();
     else if(state.tab==='quality') inner = screenQuality();
     else if(state.tab==='coa') inner = screenCoa();
