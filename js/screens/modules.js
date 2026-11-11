@@ -476,7 +476,7 @@ function addEquip(){simpleAdd('Add Instrument',[
   v=>{ const id=seq('EQP-',DATA.equipment,'id',300); DATA.equipment.unshift({id,name:v.name||'New Instrument',tag:v.tag||'NEW-00',location:v.location,status:v.status,lastCal:'—',nextCal:'—'}); audit('Added instrument','Instruments',`${id} · ${v.name}`); toast('Instrument '+id+' added','ok');});}
 function addLog(){simpleAdd('New Shift Handover',[
   {key:'shift',label:'Shift',opts:['Morning','Evening','Night','General']},{key:'samples',label:'Samples planned',ph:'e.g. 40'},{key:'completed',label:'Completed',ph:'e.g. 36'},{key:'remarks',label:'Handover notes',ph:'Open work, instrument issues, reagents'}],
-  v=>{ const id=seq('SLB-',DATA.shiftlog,'id',5100); DATA.shiftlog.unshift({id,date:fmtDate(),shift:v.shift,supervisor:myName().toUpperCase(),by:myName().toUpperCase(),at:Date.now(),samples:parseInt(v.samples)||0,completed:parseInt(v.completed)||0,remarks:v.remarks||'—'}); audit('Added shift handover','Shift Handover',id); toast('Handover '+id+' logged','ok');});}
+  v=>{ const id=(typeof uid==='function'?uid('SLB-',4):seq('SLB-',DATA.shiftlog,'id',5100)); DATA.shiftlog.unshift({id,date:fmtDate(),shift:v.shift,supervisor:myName().toUpperCase(),by:myName().toUpperCase(),at:Date.now(),samples:parseInt(v.samples)||0,completed:parseInt(v.completed)||0,remarks:v.remarks||'—'}); audit('Added shift handover','Shift Handover',id); toast('Handover '+id+' logged','ok');});}
 function addRegistry(){simpleAdd('Log Sample',[
   {key:'plant',label:'Plant',opts:['UREA','NP','OU','CAN','Ammonia','Nitric Acid','H2O2']},{key:'source',label:'Source / sampling point',ph:'e.g. Pool Reactor'},
   {key:'type',label:'Type',opts:['Routine','Non-Routine','Special']}],
