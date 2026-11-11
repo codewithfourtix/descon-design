@@ -19,6 +19,103 @@ function hasHandover(user, rec){
 const DEVICE_KEY='assure-device-id';
 function deviceId(){ let id=null; try{ id=localStorage.getItem(DEVICE_KEY); }catch(e){} if(!id){ id='DV-'+Math.random().toString(36).slice(2,8).toUpperCase()+Date.now().toString(36).slice(-4).toUpperCase(); try{ localStorage.setItem(DEVICE_KEY,id); }catch(e){} } return id; }
 function deviceOwner(id){ return (DATA.devices||[]).find(d=>d.id===id); }
+function uid(p,n){ return p+Date.now().toString(36).toUpperCase().slice(-(n||6))+Math.random().toString(36).slice(2,4).toUpperCase(); }
+
+/* ---------- shared sync: every phone, station and computer sees the same clock-ins ----------
+   Server: /api/clock (Vercel function + Upstash Redis). If it can't be reached, this browser
+   keeps working on its own and sends its changes when the connection comes back. */
+const CLOCK={live:null, ver:'', busy:null, last:0, merged:false};
+async function clockApi(body){
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),8000);
+  try{
+    const r=await fetch('/api/clock'+(body?'':'?since='+encodeURIComponent(CLOCK.ver)),{method:body?'POST':'GET',
+      headers:body?{'Content-Type':'application/json'}:{}, body:body?JSON.stringify(body):undefined, cache:'no-store', signal:ctl.signal});
+    let j={}; try{ j=await r.json(); }catch(e){ j={ok:false}; }
+    j.status=r.status; return j;
+  }catch(e){ return {ok:false,status:0}; }
+  finally{ clearTimeout(to); }
+}
+const clockStrip=o=>{ const c=Object.assign({},o); delete c.dirty; delete c.synced; return c; };
+function clockDirty(){ return (DATA.attendance||[]).some(a=>a.dirty)||(DATA.devices||[]).some(d=>d.dirty)||(DATA.shiftlog||[]).some(l=>l.by&&l.at&&!l.synced); }
+async function clockPushAll(){
+  const jobs=[];
+  (DATA.attendance||[]).filter(a=>a.dirty).forEach(a=>jobs.push({action:'attendance',record:a}));
+  (DATA.devices||[]).filter(d=>d.dirty).forEach(d=>jobs.push({action:'link',device:d}));
+  (DATA.shiftlog||[]).filter(l=>l.by&&l.at&&!l.synced).forEach(l=>jobs.push({action:'handover',log:l}));
+  for(const job of jobs){
+    const obj=job.record||job.device||job.log, key=job.record?'record':job.device?'device':'log';
+    const j=await clockApi({action:job.action,[key]:clockStrip(obj)});
+    if(j.ok){ delete obj.dirty; if(job.log) obj.synced=true; continue; }
+    if(j.status===409){ DATA.devices=(DATA.devices||[]).filter(x=>x!==obj); toast(j.error,'warn'); continue; }
+    if(j.status>=400&&j.status<500){ delete obj.dirty; if(job.log) obj.synced=true; continue; } /* rejected: don't retry forever */
+    return false; /* offline or server down: keep the rest for later */
+  }
+  return true;
+}
+function clockSync(){
+  if(CLOCK.busy) return CLOCK.busy.then(()=>clockSync());
+  CLOCK.busy=(async()=>{
+    try{
+      const pushed=await clockPushAll();
+      const j=await clockApi();
+      if(!j.ok){ clockSetLive(false); return false; }
+      clockSetLive(true);
+      if(!j.same){ CLOCK.ver=j.ver; clockMerge(j); }
+      return pushed;
+    }finally{ CLOCK.last=Date.now(); CLOCK.busy=null; }
+  })();
+  return CLOCK.busy;
+}
+function clockSyncSoon(){ setTimeout(()=>clockSync(),50); }
+function clockMerge(j){
+  const before=JSON.stringify([DATA.attendance,DATA.devices]);
+  const announce=CLOCK.merged, fresh=[];
+  const local=new Map((DATA.attendance||[]).map(a=>[a.id,a]));
+  const att=(j.attendance||[]).map(s=>{
+    const l=local.get(s.id);
+    if(l&&l.dirty&&(l.upd||0)>=(s.upd||0)) return l;
+    if(announce&&(!l||(l.upd||0)<(s.upd||0))) fresh.push({s,l});
+    return s;
+  });
+  const seen=new Set(att.map(a=>a.id));
+  (DATA.attendance||[]).forEach(a=>{ if(a.dirty&&!seen.has(a.id)) att.push(a); });
+  att.sort((x,y)=>(y.inAt||0)-(x.inAt||0));
+  DATA.attendance=att;
+  const mine=(DATA.devices||[]).filter(d=>d.dirty);
+  DATA.devices=(j.devices||[]).filter(d=>!mine.some(x=>x.id===d.id)).concat(mine);
+  DATA.shiftlog=DATA.shiftlog||[];
+  (j.handovers||[]).forEach(h=>{ h.synced=true; const i=DATA.shiftlog.findIndex(l=>l.id===h.id); if(i<0) DATA.shiftlog.unshift(h); else Object.assign(DATA.shiftlog[i],h); });
+  CLOCK.merged=true;
+  fresh.forEach(({s,l})=>{
+    const name=titleCase(s.user);
+    if(s.out&&!(l&&l.out)){
+      if(s.noHandover) notify(`${name} clocked out without handover`,s.noHandover,{icon:'clipboard-x',color:'#e0930b',route:'clock'});
+      stationFlash(name,'out',s.out);
+      if(state.route==='clock'&&!document.getElementById('station')?.classList.contains('open')) toast(`${name} clocked out · ${s.outMethod||s.method}`,'info');
+    } else if(!l){
+      stationFlash(name,'in',s.in);
+      if(state.route==='clock'&&!document.getElementById('station')?.classList.contains('open')) toast(`${name} clocked in · ${s.method}`,'ok');
+    }
+  });
+  if(JSON.stringify([DATA.attendance,DATA.devices])!==before){
+    persistSoon(); stationRecent();
+    if(state.route==='clock'&&SESSION&&!document.getElementById('scan-screen')?.classList.contains('open')) render();
+  }
+}
+function clockSetLive(on){
+  CLOCK.live=on;
+  document.querySelectorAll('[data-clock-live]').forEach(el=>{ el.className='live-chip '+(on?'on':'off'); el.innerHTML=on?'<i></i>Live · all devices':'<i></i>This browser only'; });
+}
+function clockLiveChip(){ const on=CLOCK.live; return `<span data-clock-live class="live-chip ${on?'on':on===false?'off':''}"><i></i>${on?'Live · all devices':on===false?'This browser only':'Connecting…'}</span>`; }
+/* poll: fast on the Clock page and the QR station, slow elsewhere, paused when the tab is hidden */
+setInterval(()=>{
+  if(document.hidden||CLOCK.busy) return;
+  const fast=!!document.getElementById('st-clock')||(typeof state!=='undefined'&&state.route==='clock');
+  const every=CLOCK.live===false?15000:fast?3000:30000;
+  if(Date.now()-CLOCK.last>=every) clockSync();
+},1000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&!CLOCK.busy) clockSync(); });
+document.addEventListener('DOMContentLoaded',()=>{ if(!location.hash.startsWith('#scan')) clockSync(); });
 
 /* ---------- rotating station code (a photo of the QR stops working after ~90 s) ---------- */
 function stationCode(offset){ const w=Math.floor(Date.now()/30000)+(offset||0); return (w*7919%2176782336).toString(36).toUpperCase(); }
@@ -26,7 +123,8 @@ function validCode(c){ return [0,-1,-2,1].some(o=>stationCode(o)===String(c||'')
 function scanUrl(){ return location.origin+location.pathname+'#scan:'+stationCode(); }
 
 function screenClock(){
-  const att=DATA.attendance||[];
+  const t0=startOfToday();
+  const att=(DATA.attendance||[]).filter(a=>!a.out||!a.inAt||a.inAt>=t0||(a.outAt||0)>=t0);
   const onDuty=att.filter(a=>!a.out);
   const meName=myName().toUpperCase();
   const mine=openRecordFor(meName);
@@ -47,7 +145,7 @@ function screenClock(){
     ], data:att
   });
   return `
-  <div class="page-head"><div><div class="ph-t" style="font-size:22px">Clock In / Out</div><div class="ph-s">Scan the QR at the lab with your phone. First scan clocks you in, next scan clocks you out. Lab Analysts give the shift handover before clocking out.</div></div></div>
+  <div class="page-head"><div><div class="ph-t" style="font-size:22px">Clock In / Out</div><div class="ph-s">Scan the QR at the lab with your phone. First scan clocks you in, next scan clocks you out. Lab Analysts give the shift handover before clocking out.</div></div><div>${clockLiveChip()}</div></div>
   ${kpiRow([
     {l:'On Duty Now',v:String(onDuty.length),i:'user-check',s:'Clocked in, not out'},
     {l:'Clocked In Today',v:String(att.length),i:'log-in',s:fmtDate()},
@@ -80,17 +178,21 @@ function screenClock(){
 function clockIn(user, method){
   user=String(user).toUpperCase();
   if(openRecordFor(user)){ toast(`${titleCase(user)} is already clocked in`,'info'); return; }
-  const r={id:seq('ATT-',DATA.attendance,'id',0),user,shift:currentShift(),in:fmtStamp(),inAt:Date.now(),out:'',method};
+  const now=Date.now();
+  const r={id:uid('ATT-'),user,shift:currentShift(),in:fmtStamp(),inAt:now,out:'',method,upd:now,dirty:true};
   DATA.attendance.unshift(r);
   audit('Clocked in','Clock In / Out',`${titleCase(user)} · ${r.shift} · ${method}`);
   if(state.route==='clock') render(); else persistSoon();
+  clockSyncSoon(); stationRecent();
   return r;
 }
 function doClockOut(user, method, extra){
   const r=openRecordFor(user); if(!r) return null;
-  r.out=fmtStamp(); r.outMethod=method; Object.assign(r,extra||{});
+  const now=Date.now();
+  r.out=fmtStamp(); r.outAt=now; r.outMethod=method; Object.assign(r,extra||{}); r.upd=now; r.dirty=true;
   audit('Clocked out','Clock In / Out',`${titleCase(user)} · ${hoursBetween(r.in,r.out)}${r.noHandover?' · no handover: '+r.noHandover:r.handover?' · handover given':''}`);
   if(state.route==='clock') render(); else persistSoon();
+  clockSyncSoon(); stationRecent();
   return r;
 }
 /* clock out with the handover rule. ctx: 'modal' (in the app) or 'scan' (phone screen) */
@@ -141,7 +243,7 @@ function handoverSave(user,method,ctx){
   const v=k=>((document.getElementById(k)||{}).value||'').trim();
   if(!v('ho-open')){ toast('Write the open work for the next shift (or "none")','err'); return; }
   const rec=openRecordFor(user);
-  const id=seq('SLB-',DATA.shiftlog,'id',5100);
+  const id=uid('SLB-',4);
   DATA.shiftlog.unshift({id,date:fmtDate(),shift:rec?rec.shift:currentShift(),supervisor:user,by:user,at:Date.now(),samples:parseInt(v('ho-planned'))||0,completed:parseInt(v('ho-done'))||0,
     remarks:v('ho-open')+(v('ho-inst')?' · Instruments: '+v('ho-inst'):'')});
   audit('Added shift handover','Shift Handover',`${id} · ${titleCase(user)}`);
@@ -167,12 +269,24 @@ function devicesOpen(){
   openModal({title:'Registered phones', wide:true, body: devs.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>PHONE ID</th><th>PERSON</th><th>ROLE</th><th>LINKED</th><th>LAST SCAN</th><th></th></tr></thead><tbody>
     ${devs.map(d=>`<tr><td><b style="color:var(--brand)">${d.id}</b></td><td>${titleCase(d.user)}</td><td>${roleOf(d.user)||'—'}</td><td style="color:var(--muted)">${d.at}</td><td style="color:var(--muted)">${d.last||'—'}</td><td><button class="btn btn-out btn-sm" onclick="deviceRemove('${d.id}')"><i data-lucide="unlink"></i>Unlink</button></td></tr>`).join('')}</tbody></table></div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:8px">Unlink a phone if it's lost or changed hands. The owner links a new phone with their next scan.</div>`
-    :'<div class="empty" style="padding:30px">No phones linked yet. Each phone links to its owner on the first scan at the QR station.</div>'});
+    :'<div class="empty" style="padding:30px">No phones linked yet. Each phone links to its owner on the first scan at the QR station.</div>',
+    actions: me().role==='Admin'&&CLOCK.live?[{label:'Clear all clock data',cls:'btn-out',icon:'eraser',fn:'clockResetAsk()'},{label:'Close',cls:'btn-out',fn:'closeModal()'}]:undefined});
 }
-function deviceRemove(id){
+async function deviceRemove(id){
   if(!can('Lab Supervisor','Unlinking a phone')) return;
   const i=(DATA.devices||[]).findIndex(d=>d.id===id); if(i<0) return;
-  const d=DATA.devices.splice(i,1)[0]; audit('Unlinked phone','Clock In / Out',`${d.id} · ${titleCase(d.user)}`); devicesOpen(); render(); toast('Phone unlinked','info');
+  const d=DATA.devices[i];
+  if(CLOCK.live&&!d.dirty){ const j=await clockApi({action:'unlink',id}); if(!j.ok){ toast("Couldn't reach the lab system. Try again.",'err'); return; } }
+  DATA.devices=DATA.devices.filter(x=>x.id!==id); persistSoon();
+  audit('Unlinked phone','Clock In / Out',`${d.id} · ${titleCase(d.user)}`); devicesOpen(); render(); toast('Phone unlinked','info');
+}
+function clockResetAsk(){
+  confirmModal('Clear clock data','This removes every clock-in, clock-out, linked phone and handover saved from the QR system, on all devices. Use it to start a fresh demo.',async()=>{
+    const j=await clockApi({action:'reset'});
+    if(!j.ok){ toast("Couldn't reach the lab system",'err'); return; }
+    DATA.attendance=[]; DATA.devices=[]; CLOCK.ver=''; CLOCK.merged=false; persistSoon();
+    audit('Cleared clock data','Clock In / Out'); await clockSync(); render(); toast('Clock data cleared on all devices','ok');
+  },'Clear everything','danger');
 }
 
 /* ---------- QR station (opened in its own tab at the lab entrance) ---------- */
@@ -196,8 +310,10 @@ function showStation(){
         <ol class="st-steps"><li>Open your phone camera</li><li>Point it at the code</li><li>First scan clocks you in. Next scan clocks you out.</li></ol>
         <div class="st-sub">Lab Analysts: give the shift handover when you clock out.</div>
         <div class="st-recent" id="st-recent"></div>
+        <div style="margin-top:14px">${clockLiveChip()}</div>
       </div>
     </div>
+    <div class="st-flash" id="st-flash"></div>
     <div class="st-foot"><a onclick="window.open(scanUrl(),'_blank')">Open the scan page on this computer</a><a onclick="closeStation()">Close station</a></div>
   </div>`;
   if(window.lucide) lucide.createIcons();
@@ -216,25 +332,44 @@ async function stationTick(force){
       const box=document.getElementById('st-qr'); if(!box) return; box.innerHTML='';
       new QRCode(box,{text:scanUrl(),width:300,height:300,colorDark:'#0f1b2d',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
     }catch(e){ const box=document.getElementById('st-qr'); if(box) box.innerHTML='<div style="color:#0f1b2d;padding:20px">QR needs an internet connection</div>'; }
-    const rec=document.getElementById('st-recent');
-    if(rec){ const last=(DATA.attendance||[]).slice(0,5); rec.innerHTML=last.length?'<div class="st-rh">Recent</div>'+last.map(a=>`<div class="st-ri"><b>${titleCase(a.user)}</b><span>${a.out?'out '+String(a.out).slice(-5):'in '+String(a.in).slice(-5)}</span></div>`).join(''):''; }
+    stationRecent();
   }
+}
+/* last 5 scans, newest first (clock-ins and clock-outs) */
+function stationRecent(){
+  const rec=document.getElementById('st-recent'); if(!rec) return;
+  const ev=[];
+  (DATA.attendance||[]).forEach(a=>{ ev.push({u:a.user,k:'in',t:a.inAt||0,s:a.in}); if(a.out) ev.push({u:a.user,k:'out',t:a.outAt||a.upd||0,s:a.out}); });
+  ev.sort((x,y)=>y.t-x.t);
+  const last=ev.slice(0,5);
+  rec.innerHTML=last.length?'<div class="st-rh">Recent scans</div>'+last.map(e=>`<div class="st-ri"><b>${titleCase(e.u)}</b><span class="${e.k}">${e.k==='in'?'In':'Out'} ${String(e.s).slice(-5)}</span></div>`).join(''):'';
+}
+/* big confirmation on the lab screen when a phone scan arrives */
+let FLASH_T=null;
+function stationFlash(name,kind,stamp){
+  const f=document.getElementById('st-flash'); if(!f) return;
+  f.className='st-flash show '+kind;
+  f.innerHTML=`<b>${esc(name)}</b><span>${kind==='in'?'Clocked in':'Clocked out'} · ${String(stamp).slice(-5)}</span>`;
+  clearTimeout(FLASH_T); FLASH_T=setTimeout(()=>{ f.className='st-flash'; },4500);
 }
 function closeStation(){ const h=document.getElementById('station'); if(h){ h.classList.remove('open'); h.innerHTML=''; } clearInterval(STATION_T); if(location.hash==='#qr-station'){ history.replaceState(null,'',location.pathname+'#clock'); state.route='clock'; render(); } }
 /* compatibility: old buttons */
 function qrShow(){ openStation(); }
 
 /* ---------- the phone's scan page ---------- */
-function showScan(code){
+async function showScan(code, again){
   let host=document.getElementById('scan-screen'); if(!host){ host=document.createElement('div'); host.id='scan-screen'; document.body.appendChild(host); }
   host.classList.add('open');
   const did=deviceId();
   const head=`<div class="sc-head"><img src="assets/logo.jpg" alt=""><div><b>Assure LIQS</b><span>Clock in / out</span></div></div>`;
-  if(!validCode(code)){
+  if(!again&&!validCode(code)){
     host.innerHTML=`<div class="sc">${head}<div class="sc-card bad"><i data-lucide="qr-code"></i><b>Scan the QR at the lab</b><span>This link has expired or wasn't opened from the QR station. Scan the live code on the lab screen.</span></div>
       <div class="sc-dev">Phone ID ${did}</div></div>`;
     if(window.lucide) lucide.createIcons(); return;
   }
+  host.innerHTML=`<div class="sc">${head}<div class="sc-card"><i data-lucide="loader" class="spin"></i><b>Checking…</b><span>Connecting to the lab system</span></div><div class="sc-dev">Phone ID ${did}</div></div>`;
+  if(window.lucide) lucide.createIcons();
+  await clockSync();
   const owner=deviceOwner(did);
   if(!owner){
     const people=labPeople();
@@ -244,20 +379,20 @@ function showScan(code){
       <div class="sc-dev">Phone ID ${did}</div></div>`;
     if(window.lucide) lucide.createIcons(); return;
   }
-  owner.last=fmtStamp(); persistSoon();
+  owner.last=fmtStamp(); owner.dirty=true; persistSoon();
   const user=owner.user;
   if(openRecordFor(user)){ host.innerHTML=`<div class="sc">${head}<div id="sc-panel"></div><div class="sc-dev">Phone ID ${did} · ${titleCase(user)}</div></div>`; requestClockOut(user,'QR · phone','scan'); }
   else { const r=clockIn(user,'QR · phone'); host.innerHTML=`<div class="sc">${head}<div id="sc-panel"></div><div class="sc-dev">Phone ID ${did} · ${titleCase(user)}</div></div>`; scanDone('in',user,r); }
 }
 function scanFilter(q){ q=q.toLowerCase(); document.querySelectorAll('.sc-person').forEach(b=>b.style.display=b.dataset.n.includes(q)?'':'none'); }
-function scanLink(uid,code){
-  const u=(DATA.users||[]).find(x=>x.id===uid); if(!u) return;
+async function scanLink(userId,code){
+  const u=(DATA.users||[]).find(x=>x.id===userId); if(!u) return;
   DATA.devices=DATA.devices||[];
   const taken=DATA.devices.find(d=>d.user===u.name);
   if(taken){ toast(`${titleCase(u.name)} already has a linked phone. Ask a supervisor to unlink it first.`,'warn'); return; }
-  DATA.devices.unshift({id:deviceId(),user:u.name,at:fmtStamp(),last:fmtStamp()});
+  DATA.devices.unshift({id:deviceId(),user:u.name,at:fmtStamp(),last:fmtStamp(),dirty:true});
   audit('Linked phone','Clock In / Out',`${deviceId()} · ${titleCase(u.name)}`);
-  persist(); showScan(code);
+  persist(); await clockSync(); showScan(code,true);
 }
 function scanPanel(html){ const p=document.getElementById('sc-panel'); if(p){ p.innerHTML=html; if(window.lucide) lucide.createIcons(); } }
 function scanDone(kind,user,r){
@@ -265,7 +400,15 @@ function scanDone(kind,user,r){
     <b>${kind==='in'?'Clocked in':'Clocked out'} · ${fmtTime()}</b>
     <span>${titleCase(user)} · ${r?r.shift:currentShift()} shift${kind==='out'&&r?' · '+hoursBetween(r.in,r.out)+' today':''}</span>
     ${kind==='out'&&r&&r.noHandover?`<span class="sc-warn">No handover · ${esc(r.noHandover)}</span>`:''}${kind==='out'&&r&&r.handover&&r.handover!==true?`<span class="sc-ok">Handover ${r.handover} saved</span>`:''}</div>
+    <div class="sc-sync" id="sc-sync"><i data-lucide="loader" class="spin"></i>Sending to the lab system…</div>
     <div class="sc-hint">You can close this page.</div>`);
+  clockSync().then(()=>{
+    const el=document.getElementById('sc-sync'); if(!el) return;
+    const ok=CLOCK.live&&!clockDirty();
+    el.className='sc-sync '+(ok?'ok':'wait');
+    el.innerHTML=ok?'<i data-lucide="check"></i>Sent. It shows on the lab screen now.':'<i data-lucide="wifi-off"></i>Saved on this phone. It will send when the phone is online.';
+    if(window.lucide) lucide.createIcons();
+  });
 }
 
 /* open the station / scan screens from the URL */
