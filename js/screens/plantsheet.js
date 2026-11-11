@@ -1,7 +1,7 @@
 /* ===== Plant Sheet: the daily Plant Analysis Sheet (TD-3-004), built from Result Entry =====
    Today's sheet fills itself as analysts enter results. Past sheets are kept by date, and old
    Excel sheets can be imported as they are. */
-const PS={date:null, edit:false};
+const PS={date:null, edit:false, view:'sheet', zoom:1, cells:{}};
 LIBS.xlsx='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 
 function psToday(){ return pasIso(new Date()); }
@@ -63,14 +63,22 @@ function screenPlantSheet(){
         ${live?`<button class="btn ${edit?'btn-green':'btn-out'}" onclick="psToggleEdit()"><i data-lucide="${edit?'check':'pencil'}"></i>${edit?'Done editing':'Type into the sheet'}</button>`:''}
         <button class="btn btn-out" onclick="psImport()"><i data-lucide="upload"></i>Import Excel sheet</button>
         <button class="btn btn-out" onclick="psExportXlsx()"><i data-lucide="file-spreadsheet"></i>Excel</button>
-        <button class="btn btn-out" onclick="exportPage('pdf')"><i data-lucide="file-text"></i>PDF</button>
+        <button class="btn btn-out" onclick="psPdf()"><i data-lucide="file-text"></i>PDF</button>
         <button class="btn btn-blue" style="background:var(--brand);color:#fff" onclick="psSend()"><i data-lucide="send"></i>Send to distribution</button>
       </div>
     </div>
     <div id="ps-kpis">${psKpis(n,oos.length,points,signed)}</div>
     <div id="ps-oos">${psOosCard(oos,date)}</div>
-    ${PAS_TPL.sections.map(sec=>psSection(sec,grids,logs,edit,live)).join('')}
-    ${psFooter(rec,live,date)}
+    <div class="pas-viewbar">
+      <div class="seg" role="tablist" aria-label="View">
+        <button class="${PS.view==='sheet'?'on':''}" onclick="psView('sheet')"><i data-lucide="sheet"></i>Sheet</button>
+        <button class="${PS.view==='cards'?'on':''}" onclick="psView('cards')"><i data-lucide="layout-grid"></i>Sections</button>
+      </div>
+      ${PS.view==='sheet'?`<div class="pas-zoom"><button onclick="psZoom(-0.1)" aria-label="Zoom out"><i data-lucide="minus"></i></button><span>${Math.round(PS.zoom*100)}%</span><button onclick="psZoom(0.1)" aria-label="Zoom in"><i data-lucide="plus"></i></button><button onclick="psZoom(0)" class="pas-fit">Fit width</button></div>`:''}
+      ${edit?'<span class="pas-editing"><i data-lucide="pencil"></i>Typing into the sheet · values save to Result Entry</span>':''}
+    </div>
+    ${PS.view==='sheet'?psSheetView(date,grids,logs,rec,live,edit)
+      :PAS_TPL.sections.map(sec=>psSection(sec,grids,logs,edit,live)).join('')+psFooter(rec,live,date)}
   </div>`;
 }
 function psKpis(n,o,points,signed){
@@ -88,7 +96,7 @@ function psOosCard(oos,date){
     <div class="pas-oos-list">${psGroupOos(oos).map(x=>{ const o=x.items[0];
       const vals=x.items.map(i=>psNum(i.v)).filter(v=>v!=null); const lo=Math.min(...vals), hi=Math.max(...vals);
       const shown=vals.length>1&&lo!==hi?`${lo} to ${hi}`:esc(o.v);
-      return `<button class="pas-oos-i" onclick="psJump('pc-${o.g.id}-${o.ri}-${o.cx}')"><b>${esc(o.g.t)}</b><span>${esc(o.r[0])} · ${x.items.length>1?`${x.items.length} of ${x.total} readings`:esc(o.col)}</span><em>${shown} <small>${esc(o.r[1]||'')}</small></em><i>range ${esc(o.r[2])}${x.items.length>1?` · at ${x.items.map(i=>i.col).join(', ')}`:''}</i></button>`; }).join('')}</div></div>`;
+      return `<button class="pas-oos-i" onclick="psJumpTo('${o.g.id}',${o.ri},${o.cx})"><b>${esc(o.g.t)}</b><span>${esc(o.r[0])} · ${x.items.length>1?`${x.items.length} of ${x.total} readings`:esc(o.col)}</span><em>${shown} <small>${esc(o.r[1]||'')}</small></em><i>range ${esc(o.r[2])}${x.items.length>1?` · at ${x.items.map(i=>i.col).join(', ')}`:''}</i></button>`; }).join('')}</div></div>`;
 }
 /* one line per sampling point + test, e.g. "Color · 11 of 12 readings" */
 function psGroupOos(oos){
@@ -100,7 +108,7 @@ function psGroupOos(oos){
 }
 function psSection(sec,grids,logs,edit,live){
   const gs=PAS_TPL.grids.filter(g=>g.sec===sec.id), ls=PAS_TPL.logs.filter(l=>l.sec===sec.id);
-  const n=gs.reduce((s,g)=>s+Object.keys(grids[g.id]||{}).length,0)+ls.reduce((s,l)=>s+((logs[l.id]||[]).length),0);
+  const n=gs.reduce((s,g)=>s+Object.keys(grids[g.id]||{}).length,0)+ls.reduce((s,l)=>s+((logs[l.id]||[]).filter(r=>Object.values(r).some(Boolean)).length),0);
   const o=psOOS(grids).filter(x=>x.g.sec===sec.id).length;
   let blocks='';
   if(sec.id==='hp'){
@@ -147,9 +155,10 @@ function psCombo(title,ids,grids,edit){
 }
 function psLogBlock(l,rows,edit,live){
   const head=l.fields.map(f=>`<th>${esc(f[1])}</th>`).join('')+(edit?'<th></th>':'');
-  const body=rows.length?rows.map((r,i)=>`<tr>${l.fields.map(f=>`<td class="${f[0]==='tank'||f[0]==='time'?'pas-k':''}">${r[f[0]]?esc(r[f[0]]):'<span class="pas-nil">·</span>'}</td>`).join('')}${edit?`<td><button class="pas-x" onclick="psLogDel('${l.id}',${i})" aria-label="Remove line"><i data-lucide="x"></i></button></td>`:''}</tr>`).join('')
+  const list=rows.map((r,i)=>({r,i})).filter(x=>Object.values(x.r).some(Boolean));
+  const body=list.length?list.map(({r,i})=>`<tr>${l.fields.map(f=>`<td class="${f[0]==='tank'||f[0]==='time'?'pas-k':''}">${r[f[0]]?esc(r[f[0]]):'<span class="pas-nil">·</span>'}</td>`).join('')}${edit?`<td><button class="pas-x" onclick="psLogDel('${l.id}',${i})" aria-label="Remove line"><i data-lucide="x"></i></button></td>`:''}</tr>`).join('')
     :`<tr><td colspan="${l.fields.length+(edit?1:0)}" class="pas-empty">No entries</td></tr>`;
-  return `<div class="pas-b ${l.fields.length>5?'wide':''}" id="pasb-${l.id}"><div class="pas-bh"><b>${esc(l.t)}</b><span>${rows.length} line${rows.length===1?'':'s'}</span>${live?`<button class="btn btn-out btn-sm" onclick="psLogAdd('${l.id}')"><i data-lucide="plus"></i>Add</button>`:''}</div>
+  return `<div class="pas-b ${l.fields.length>5?'wide':''}" id="pasb-${l.id}"><div class="pas-bh"><b>${esc(l.t)}</b><span>${list.length} line${list.length===1?'':'s'}</span>${live?`<button class="btn btn-out btn-sm" onclick="psLogAdd('${l.id}')"><i data-lucide="plus"></i>Add</button>`:''}</div>
     <div class="pas-tw"><table class="pas-t pas-log"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function psFooter(rec,live,date){
@@ -262,29 +271,29 @@ function psImportSave(){
   closeModal(); persistSoon(); render(); toast(`Imported ${psLabel(p.date)} · ${pasCount(p.grids)} readings`,'ok');
 }
 async function psExportXlsx(){
-  const date=psCurrent(), rec=psRec(date), grids=psGrids(date), logs=(rec&&rec.logs)||{};
+  const date=psCurrent(), rec=psRec(date), grids=psGrids(date), logs=(rec&&rec.logs)||{}, live=psIsLive(date);
   try{
     await loadScript(LIBS.xlsx);
-    const A=[[PAS_TPL.title.toUpperCase(),'','',PAS_TPL.code+' '+PAS_TPL.issue],['Date',psLabel(date)],['Plant','Descon Oxychem · QC Laboratory'],[]];
-    PAS_TPL.sections.forEach(sec=>{
-      A.push([sec.t.toUpperCase()]);
-      PAS_TPL.grids.filter(g=>g.sec===sec.id).forEach(g=>{
-        const v=grids[g.id]||{};
-        A.push([g.t]); A.push(['Parameter','Unit','Range',...g.cols]);
-        g.rows.forEach((r,ri)=>A.push([r[0],r[1],r[2],...g.cols.map((_,cx)=>{ const x=v[ri+'-'+cx]; const n=psNum(x); return x==null?'':(n!=null&&String(n)===x?n:x); })]));
-        A.push([]);
-      });
-      PAS_TPL.logs.filter(l=>l.sec===sec.id).forEach(l=>{ A.push([l.t]); A.push(l.fields.map(f=>f[1])); (logs[l.id]||[]).forEach(r=>A.push(l.fields.map(f=>r[f[0]]||''))); A.push([]); });
-    });
-    A.push(['Shift sign-off',...PAS_TPL.shifts.map(s=>{ const x=rec&&rec.signoff&&rec.signoff[s.k]; return s.l+': '+(x?(x.paper?'signed on paper':titleCase(x.by)+' '+x.at):'not signed'); })]);
-    A.push(['To: '+PAS_TPL.to+'   CC: '+PAS_TPL.cc.join(', ')]);
-    const ws=XLSX.utils.aoa_to_sheet(A); ws['!cols']=[{wch:30},{wch:10},{wch:18},...Array(13).fill({wch:9})];
+    const L=PAS_LAYOUT, m=psSheetCells(date,grids,logs,rec,live,false), ws={}, merges=[];
+    const fmtZ={p4:'0000',i:'0',d1:'0.0',d2:'0.00',d3:'0.000',d4:'0.0000'};
+    L.cells.forEach((line,r)=>line.forEach(cell=>{
+      const [c,rs,cs,text]=cell, a=psColName(c)+(r+1);
+      if(rs>1||cs>1) merges.push({s:{r,c},e:{r:r+rs-1,c:c+cs-1}});
+      let v=text;
+      if(cell.length>5){ const d=m[a]||{}; v=d.text!=null?d.text:(d.v||''); }
+      if(v===''||v==null) return;
+      const sv=String(v).trim(), n=psNum(sv);
+      if(n!=null&&/^-?\d+(\.\d+)?$/.test(sv)) ws[a]={t:'n',v:n,z:fmtZ[cell[5]]};
+      else ws[a]={t:'s',v:String(v)};
+    }));
+    ws['!ref']='A1:AH44'; ws['!merges']=merges;
+    ws['!cols']=L.cols.map(w=>({wpx:w})); ws['!rows']=L.rows.map(hp=>({hpx:hp}));
     const oos=psOOS(grids);
     const ws2=XLSX.utils.aoa_to_sheet([['Sampling point','Parameter','Time','Value','Unit','Range'],...oos.map(o=>[o.g.t,o.r[0],o.col,o.v,o.r[1],o.r[2]])]);
     ws2['!cols']=[{wch:40},{wch:20},{wch:10},{wch:10},{wch:8},{wch:18}];
-    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Plant Analysis'); XLSX.utils.book_append_sheet(wb,ws2,'Outside range');
-    XLSX.writeFile(wb,`Plant_Analysis_Sheet_${date}.xlsx`);
-    audit('Exported plant sheet','Plant Sheet',`${psLabel(date)} (Excel)`); toast('Excel file saved','ok');
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Sheet2'); XLSX.utils.book_append_sheet(wb,ws2,'Outside range');
+    XLSX.writeFile(wb,`${date.split('-').reverse().join('-')}.xlsx`);
+    audit('Exported plant sheet','Plant Sheet',`${psLabel(date)} (Excel)`); toast('Excel file saved in the TD-3-004 layout','ok');
   }catch(e){ console.error(e); toast('Export needs an internet connection to load the Excel writer','err'); }
 }
 function psSend(){
@@ -317,4 +326,146 @@ function psTrend(){
     CHARTS[id]=new Chart(el,{type:'line',data:{labels:o.cols,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,
       plugins:{legend:{position:'top',align:'start',labels:{boxWidth:10}}},interaction:{mode:'index',intersect:false},scales:{y:{grace:'8%'},x:{grid:{display:false}}}}});
   }),80);
+}
+
+/* ================= Exact sheet view: TD-3-004 drawn cell for cell from Descon's Excel layout ================= */
+function psColName(c){ let n=c+1, out=''; while(n>0){ const m=(n-1)%26; out=String.fromCharCode(65+m)+out; n=Math.floor((n-1)/26); } return out; }
+function psCellAddr(g,ri,cx){ const src=g.rows[ri][3]; if(Array.isArray(src)) return src[cx]; if(src&&src.pairs&&src.pairs[cx]) return src.pairs[cx][1]; return null; }
+function psJumpTo(gid,ri,cx){
+  if(PS.view==='sheet'){ const a=psCellAddr(psGrid(gid),ri,cx); if(a) return psJump('xa-'+a); }
+  psJump('pc-'+gid+'-'+ri+'-'+cx);
+}
+function psView(v){ PS.view=v; render(); }
+function psZoom(d){
+  const t=document.querySelector('.xls'), w=document.querySelector('.xls-wrap');
+  if(d===0){ if(w&&t) PS.zoom=Math.max(0.4,Math.min(1.5,+((w.clientWidth-40)/(t.offsetWidth)).toFixed(2))); }
+  else PS.zoom=Math.max(0.4,Math.min(1.5,+(PS.zoom+d).toFixed(2)));
+  const sh=document.querySelector('.xls-sheet'); if(sh) sh.style.zoom=PS.zoom;
+  const z=document.querySelector('.pas-zoom span'); if(z) z.textContent=Math.round(PS.zoom*100)+'%';
+  psAfter();
+}
+/* number formats as set in the Excel file ("0000" times, "0.00" results), never hiding digits that were entered */
+function psFmt(v,code,width,strict){
+  if(v==null||v==='') return '';
+  const s=String(v).trim(); if(!/^-?\d+(\.\d+)?$/.test(s)) return s;
+  const n=parseFloat(s); let f=s;
+  if((!code||code==='g')&&width){ const max=Math.max(3,Math.floor((width-4)/7.2)); if(s.length>max&&s.includes('.')){ const intLen=String(Math.trunc(Math.abs(n))).length+(n<0?1:0); const dp=Math.max(0,max-intLen-1); return String(+n.toFixed(dp)); } return s; }
+  if(strict&&code){ if(code==='p4') return String(Math.round(n)).padStart(4,'0'); if(code==='i') return String(Math.round(n)); if(code[0]==='d') return n.toFixed(+code[1]); }
+  if(code==='p4') f=String(Math.round(n)).padStart(4,'0');
+  else if(code==='i') f=String(Math.round(n));
+  else if(code&&code[0]==='d') f=n.toFixed(+code[1]);
+  return parseFloat(f)===n?f:s;
+}
+function psExcelDate(iso){ const d=new Date(iso+'T00:00:00'); return isNaN(d)?iso:`${d.getDate()}-${MON[d.getMonth()]}-${d.getFullYear()}`; }
+let PS_CSS=false;
+function psSheetStyles(){
+  if(PS_CSS||typeof PAS_LAYOUT==='undefined') return; PS_CSS=true;
+  const el=document.createElement('style'); el.id='xls-css';
+  el.textContent=PAS_LAYOUT.styles.map((c,i)=>`.xls td.s${i}{${c}}`).join('\n');
+  document.head.appendChild(el);
+}
+/* what goes in each data cell of the sheet */
+function psSheetCells(date,grids,logs,rec,live,edit){
+  const m={};
+  m[PAS_TPL.dateCell]={v:psExcelDate(date),ro:true};
+  PAS_TPL.grids.forEach(g=>{ const vals=grids[g.id]||{};
+    g.rows.forEach((r,ri)=>{ const src=r[3];
+      if(Array.isArray(src)) src.forEach((a,cx)=>{ if(!a) return; const v=vals[ri+'-'+cx]; m[a]={v,g,ri,chk:checkSpec(r[2],v),ed:{t:'g',g:g.id,ri,cx}}; });
+      else if(src&&src.pairs) src.pairs.forEach(([ta,va],k)=>{ const v=vals[ri+'-'+k]; const has=v!=null&&v!=='';
+        m[ta]={v:has||edit?g.cols[k]:'',ro:true}; m[va]={v,g,ri,chk:checkSpec(r[2],v),ed:{t:'g',g:g.id,ri,cx:k}}; });
+    });
+  });
+  PAS_TPL.logs.forEach(l=>{ const rows=logs[l.id]||[], per=l.to-l.from+1;
+    l.sets.forEach((set,si)=>{ for(let r=l.from;r<=l.to;r++){ const slot=si*per+(r-l.from), row=rows[slot]||{};
+      set.forEach((col,fi)=>{ const f=l.fields[fi]; m[col+r]={v:row[f[0]]||'',ed:{t:'l',l:l.id,slot,f:f[0],k:f[2]}}; }); }});
+  });
+  [['x3011o','AG'],['x3011n','AH']].forEach(([gid,col])=>{ const g=psGrid(gid), vals=grids[gid]||{};
+    g.rows.forEach((r,ri)=>{ const a=psAvg(g.cols.map((_,cx)=>vals[ri+'-'+cx])); m[col+(21+ri)]={v:a,g,ri,chk:checkSpec(r[2],a),ro:true,strict:true}; }); });
+  [['ox2042','AG24'],['ox2063','AG25'],['ws1025','AG26']].forEach(([gid,a])=>{ const g=psGrid(gid), vals=grids[gid]||{};
+    const av=psAvg(g.cols.map((_,cx)=>vals['0-'+cx])); m[a]={v:av,g,ri:0,chk:checkSpec(g.rows[0][2],av),ro:true,strict:true}; });
+  const sg={E:'AB44',N:'AD44',M:'AF44'};
+  PAS_TPL.shifts.forEach(s=>{ const x=rec&&rec.signoff&&rec.signoff[s.k];
+    m[sg[s.k]]={ro:true,text:x?(x.paper?'Signed':initialsOf(titleCase(x.by))):'',html:x?(x.paper?'<span class="xls-signed">Signed</span>':`<span class="xls-signed" title="${esc(titleCase(x.by)+' · '+x.at)}">${esc(initialsOf(titleCase(x.by)))}</span>`)
+      :live?`<button class="xls-sign" onclick="psSign('${s.k}')">Sign</button>`:''}; });
+  m.Z44={ro:true,v:''}; /* lab in-charge signs on paper; names are not shown */
+  return m;
+}
+function psSheetView(date,grids,logs,rec,live,edit){
+  if(typeof PAS_LAYOUT==='undefined') return '<div class="empty">Sheet layout not loaded</div>';
+  psSheetStyles();
+  const L=PAS_LAYOUT, m=psSheetCells(date,grids,logs,rec,live,edit); PS.cells=m;
+  const W=L.cols.reduce((a,b)=>a+b,0);
+  let h=`<div class="xls-wrap"><div class="xls-sheet" style="zoom:${PS.zoom}"><table class="xls" style="width:${W}px"><colgroup>${L.cols.map(w=>`<col style="width:${w}px">`).join('')}</colgroup><tbody>`;
+  L.cells.forEach((line,r)=>{
+    h+=`<tr style="height:${L.rows[r]}px">`;
+    line.forEach(cell=>{
+      const [c,rs,cs,text,st]=cell, a=psColName(c)+(r+1), dyn=cell.length>5;
+      let inner, cls='s'+st, title='';
+      if(dyn){
+        const d=m[a]||{};
+        if(d.html!=null) inner=d.html;
+        else if(edit&&d.ed) inner=`<input class="xls-in" value="${esc(d.v||'')}" data-a="${a}" oninput="psSheetEdit(this)" aria-label="${esc(d.g?d.g.t+' · '+d.g.rows[d.ri][0]:a)}">`;
+        else { let w=0; for(let k=0;k<cs;k++) w+=L.cols[c+k]; const s=psFmt(d.v,cell[5],w,d.strict); inner=esc(s); if(/^-?\d/.test(s)) cls+=' xn'; }
+        if(d.chk==='fail'){ cls+=' xbad'; title=`Outside range ${d.g.rows[d.ri][2]}`; }
+      } else inner=Array.isArray(text)?text[1]:esc(text);
+      h+=`<td${rs>1?` rowspan="${rs}"`:''}${cs>1?` colspan="${cs}"`:''} class="${cls}" id="xa-${a}"${title?` title="${esc(title)}"`:''}>${inner}</td>`;
+    });
+    h+='</tr>';
+  });
+  return h+'</tbody></table><div class="xls-draw" aria-hidden="true"></div></div></div>';
+}
+function psSheetEdit(inp){
+  const d=PS.cells[inp.dataset.a]; if(!d||!d.ed) return;
+  const v=inp.value.trim(), e=d.ed;
+  if(e.t==='g'){
+    const g=psGrid(e.g), ci=psCardIndex(e.g); if(ci<0) return;
+    const st=labState(ci); st.values[e.ri+'-'+e.cx]=v;
+    if(st.status==='Pending'||st.status==='Missed') st.status='Draft';
+    st.updated=fmtStamp(); st.by=myName();
+    const chk=checkSpec(g.rows[e.ri][2],v); inp.parentElement.classList.toggle('xbad',chk==='fail');
+    inp.parentElement.title=chk==='fail'?'Outside range '+g.rows[e.ri][2]:'';
+  } else {
+    const rec=psLiveRec(); rec.logs[e.l]=rec.logs[e.l]||[];
+    while(rec.logs[e.l].length<=e.slot) rec.logs[e.l].push({});
+    rec.logs[e.l][e.slot][e.f]=v;
+  }
+  clearTimeout(PS_T); PS_T=setTimeout(psRefresh,400); persistSoon();
+}
+async function psPdf(){
+  const t=document.querySelector('.xls');
+  if(PS.view!=='sheet'||!t){ exportPage('pdf'); return; }
+  const date=psCurrent(); toast('Preparing PDF…','info');
+  try{
+    await loadScript(LIBS.html2canvas); await loadScript(LIBS.jspdf);
+    const sh=t.parentElement, z=sh.style.zoom; sh.style.zoom=1; psAfter();
+    const canvas=await html2canvas(sh,{scale:2,backgroundColor:'#ffffff',width:t.offsetWidth,height:t.offsetHeight,windowWidth:t.offsetWidth+80});
+    sh.style.zoom=z; psAfter();
+    const {jsPDF}=window.jspdf; const pdf=new jsPDF({orientation:'landscape',unit:'pt',format:'a3'});
+    const Wp=pdf.internal.pageSize.getWidth(), Hp=pdf.internal.pageSize.getHeight(), mg=24;
+    const k=Math.min((Wp-2*mg)/canvas.width,(Hp-2*mg)/canvas.height);
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',mg,mg,canvas.width*k,canvas.height*k);
+    pdf.save(`Plant_Analysis_Sheet_${date}.pdf`);
+    audit('Exported plant sheet','Plant Sheet',`${psLabel(date)} (PDF)`); toast('PDF saved','ok');
+  }catch(e){ console.error(e); toast('PDF needs an internet connection to load the exporter','err'); }
+}
+
+/* drawing layer of the Excel sheet: the Descon logo, thin divider lines and text boxes, placed by their cell anchors */
+function psAfter(){
+  const sh=document.querySelector('.xls-sheet'), t=sh&&sh.querySelector('.xls'), lay=sh&&sh.querySelector('.xls-draw');
+  if(!lay||typeof PAS_LAYOUT==='undefined') return;
+  const L=PAS_LAYOUT; /* measured at the current zoom: row heights shift slightly between zoom levels */
+  const top=[...t.rows].map(r=>r.offsetTop), hgt=[...t.rows].map(r=>r.offsetHeight); /* offsets ignore the page's entry animation */
+  const left=[]; L.cols.reduce((x,w,i)=>{ left[i]=x; return x+w; },0);
+  const P=(c,dx,r,dy)=>[left[c]+dx/1024*L.cols[c], (top[r]||0)+dy/256*(hgt[r]||0)];
+  const W=t.offsetWidth, H=t.offsetHeight; let svg='', html='';
+  (L.draw||[]).forEach(d=>{
+    let [x1,y1]=P(d.a[0],d.a[1],d.a[2],d.a[3]), [x2,y2]=P(d.a[4],d.a[5],d.a[6],d.a[7]);
+    const box=`left:${Math.min(x1,x2)}px;top:${Math.min(y1,y2)}px;width:${Math.max(1,Math.abs(x2-x1))}px;height:${Math.max(1,Math.abs(y2-y1))}px`;
+    if(d.t==='line'){ if(d.fh) [x1,x2]=[x2,x1]; if(d.fv) [y1,y2]=[y2,y1];
+      svg+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#000" stroke-width="1"${d.ae?' marker-end="url(#xd-arrow)"':''}${d.as?' marker-start="url(#xd-arrow-s)"':''}/>`; }
+    else if(d.t==='pic') html+=`<img class="xd-pic" src="assets/sheet-logo.png" alt="" style="${box}">`;
+    else if(d.t==='art') html+=`<div class="xd-art" style="${box};font-size:${Math.abs(y2-y1)*0.92}px">${esc(d.s)}</div>`;
+    else html+=`<div class="xd-text" style="${box}">${esc(d.s)}</div>`;
+  });
+  lay.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><marker id="xd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9 z" fill="#000"/></marker><marker id="xd-arrow-s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#000"/></marker></defs>${svg}</svg>`+html;
 }

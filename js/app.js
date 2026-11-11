@@ -212,6 +212,7 @@ function afterRender(){
   else if(state.route==='iso') {/* css bars, no chart.js */}
   else if(DATA.nav.find(n=>n.id===state.route&&n.product) && state.tab==='quality') qualityCharts();
   else if(DATA.nav.find(n=>n.id===state.route&&n.product) && state.tab==='labsheet') labAfter();
+  else if(state.route==='h2o2' && state.tab==='pas' && typeof psAfter==='function'){ psAfter(); setTimeout(psAfter,350); }
   if(state.route==='ai') scrollChat();
 }
 

@@ -1177,3 +1177,38 @@ body.dark .pas-sign.done{background:#13261f;border-color:#1f4a3a}
 @media (max-width:640px){.pas-signs{grid-template-columns:1fr}.pas-blocks{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.pas-flash{animation:none}}
 body.dark .pas-warn{background:#2b2412;color:#f5c46b}
+
+/* v2.5 exact TD-3-004 sheet view */
+.pas-viewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pas-viewbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.pas-viewbar .seg button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:7px 12px;font:inherit;font-size:12.5px;color:var(--muted);cursor:pointer}
+.pas-viewbar .seg button svg{width:14px}
+.pas-viewbar .seg button.on{background:var(--brand);color:#fff}
+.pas-zoom{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--card)}
+.pas-zoom button{border:0;background:transparent;padding:5px 7px;cursor:pointer;color:var(--ink);display:inline-flex;border-radius:6px;font:inherit;font-size:12px}
+.pas-zoom button:hover{background:var(--line2)}.pas-zoom button svg{width:14px}
+.pas-zoom span{font-size:12px;min-width:40px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+.pas-zoom .pas-fit{border-left:1px solid var(--line);border-radius:0 6px 6px 0}
+.pas-editing{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0a7a5c;background:#e7f6ef;border-radius:20px;padding:5px 11px}
+.pas-editing svg{width:13px}
+.xls-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;max-height:calc(100vh - 150px);box-shadow:0 1px 3px rgba(15,27,45,.06)}
+.xls{border-collapse:collapse;table-layout:fixed;font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff}
+.xls td{padding:0 2px;overflow:visible;line-height:1.12;color:#000}
+.xls td.xn{text-align:right}
+.xls td.xbad{color:#ff0000!important}
+.xls td:target,.xls td.pas-flash{animation:pasflash 1.6s ease}
+.xls-in{display:block;width:100%;height:100%;min-height:18px;border:0;margin:0;background:#eef5ff;font:inherit;color:inherit;text-align:inherit;padding:0 1px;outline:none;box-sizing:border-box}
+.xls-in:focus{background:#fff;box-shadow:inset 0 0 0 2px #0060b0}
+.xls td.xbad .xls-in{color:#ff0000}
+.xls-sign{font:inherit;font-size:8.5pt;padding:2px 12px;border:1px solid #0a9d78;background:#e7f6ef;color:#0a7a5c;border-radius:4px;cursor:pointer}
+.xls-sign:focus-visible{outline:2px solid #0060b0;outline-offset:1px}
+.xls-signed{color:#0a7a5c;font-weight:700}
+body.dark .xls-wrap{border-color:#2a3442}
+.xls-sheet{position:relative;display:inline-block}
+.xls-draw{position:absolute;inset:0;pointer-events:none}
+.xd-line{position:absolute;background:#000}
+.xd-pic{position:absolute;object-fit:contain}
+.xd-text{position:absolute;border:1px solid #000;background:#fff;font:10pt Arial,Helvetica,sans-serif;color:#000;white-space:pre-wrap;padding:2px 4px;line-height:1.2;overflow:hidden}
+.xls-draw svg{position:absolute;left:0;top:0;overflow:visible}
+.xd-art{position:absolute;display:flex;align-items:center;justify-content:center;font-family:'Arial Black',Arial,sans-serif;font-weight:900;color:transparent;-webkit-text-stroke:1px #000;letter-spacing:.04em;line-height:1;white-space:nowrap;overflow:hidden}
+.xd-text{font-size:9pt!important}

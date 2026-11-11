@@ -50,7 +50,7 @@ const PAS_TPL={
       ['Ar. solvent','%','69.5 - 72',['C29']],['TOP','%','2.0 - 3.0',['C30']],['TBU','%','26 - 28.5',['C31']],['EAQ','g/L','30 - 60',['C32']],
       ['H4EAQ','g/L','90 - 120',['C33']],['Epoxide','g/L','< 8.0',['C34']],['Active quinone','g/L','143 - 146',['C35']],
       ['Sp. gravity @ 25 °C','','0.92 - 0.93',['C36']],['pH','','3.5 - 5.0',['C37']]]},
-    {id:'wsm',sec:'hp',t:'Working solution · moisture',cols:['1600','2000','0000','0400','0800','1200'],rows:[
+    {id:'wsm',sec:'hp',t:'Working solution · moisture',cols:['1600','0000','0800','2000','0400','1200'],rows:[
       ['Moisture','%','0.21 - 0.30',{pairs:[39,40,41,42,43,44].map(r=>['B'+r,'C'+r])}]]},
     {id:'tg',sec:'hp',t:'Concentration · Technical grade',cols:['1600','0000','0800'],rows:[
       ['H2O2','%','60 max',['F31','F32','F33']],['pH','','0 - 2.0',['G31','G32','G33']],['Color','APHA','50 max',['H31','H32','H33']],
