@@ -206,7 +206,7 @@ function paletteItems(){
    ['Record calibration','gauge','go(\'equip\')'],
    ['Log CAPA','clipboard-check','go(\'iso\');setTimeout(()=>logCapa(),150)'],
    ['Clock in / out','clock','go(\'clock\')'],
-   ['Open tablet clock-in','tablet-smartphone','go(\'clock\');setTimeout(kioskOpen,150)'],
+   ['Open QR station','qr-code','go(\'clock\');setTimeout(openStation,150)'],
    ['Switch profile','users-round','openProfileSwitch()'],
    ['Customers and CoA formats','building-2','go(\'customers\')'],
    ['Import customers from SAP','upload','go(\'customers\');setTimeout(custImport,150)'],

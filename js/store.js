@@ -256,7 +256,8 @@ function updateBadge(){
     {id:'ATT-4',user:'SHARJEEL TAHIR',shift:'Morning',in:today+' 06:10',out:'',method:'Web'},
     {id:'ATT-5',user:'IMRAN YOUSAF',shift:'Morning',in:today+' 05:48',out:'',method:'Lab tablet'},
   ];
-  DATA.pins={};   /* userId -> hashed 4-digit PIN, set by each person on first use */
+  DATA.pins={};   /* userId -> hashed 4-digit PIN for profile switching, set on first use */
+  DATA.devices=[];/* phones linked to people on their first QR scan */
 })();
 
 /* ---------- persistence ---------- */
@@ -266,7 +267,7 @@ const PERSIST = {
   notifications:()=>DATA.notifications, batches:()=>DATA.batches, coas:()=>DATA.coas, capas:()=>DATA.capas,
   extAudits:()=>DATA.extAudits, roster:()=>DATA.roster, glass:()=>DATA.glass, vendors:()=>DATA.vendors, msds:()=>DATA.msds,
   labResults:()=>DATA.labResults, tasks:()=>DATA.tasks,
-  customers:()=>DATA.customers, attendance:()=>DATA.attendance, pins:()=>DATA.pins,
+  customers:()=>DATA.customers, attendance:()=>DATA.attendance, pins:()=>DATA.pins, devices:()=>DATA.devices,
   docsCards:()=>DATA.docs.cards, chemRows:()=>DATA.chem.rows, specialRows:()=>DATA.special.rows, isoTable:()=>DATA.iso.table,
 };
 const APPLY = {
